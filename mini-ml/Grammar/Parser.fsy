@@ -1,0 +1,75 @@
+﻿%{
+open Core.Term
+%}
+
+// The start token becomes a parser function in the compiled code:
+%start start
+
+// Regular tokens
+%token LPAR
+%token RPAR
+%token LBRACK
+%token RBRACK
+%token DOUBLECOLON
+%token ARROW
+%token PLUS
+%token COMMA
+%token MINUS 
+%token TIMES
+%token DIV 
+%token MOD
+%token <string> IDENT
+%token <int> NUM
+
+// Misc tokens
+%token EOF
+
+// This is the type of the data produced by a successful reduction of the 'start'
+// symbol:
+%type < Core.Term.Term > start
+
+%%
+
+// These are the rules of the grammar along with the F# code of the 
+// actions executed as rules are reduced.  
+start:
+	| term EOF { $1 }
+
+term: 
+	| abs { $1 }
+	
+abs:
+	| IDENT ARROW abs { Abs($1, $3) }
+	| list { $1 }
+	
+list:
+    | expr { $1 }
+    | expr DOUBLECOLON list { ConsList($1, $3) }
+    
+	
+expr:
+    | expr PLUS factor { BinaryOperation($1, $3, Plus) }
+    | expr MINUS factor { BinaryOperation($1, $3, Minus) }
+    | factor { $1 }
+    
+factor:
+    | factor TIMES app { BinaryOperation($1, $3, Times) }
+    | factor DIV app { BinaryOperation($1, $3, Div) }
+    | factor MOD app { BinaryOperation($1, $3, Mod) }
+    | app { $1 }
+
+app: 
+	| app atom { App($1, $2) }
+	| atom { $1 }
+
+atom:
+    | NUM { Num($1) }
+	| IDENT { Var($1) }
+	| LPAR term RPAR { $2 }
+	| LBRACK RBRACK { EmptyList }
+	| LBRACK seq RBRACK { ListTermToTerm $2 }
+
+seq:
+    | term { [$1] }
+    | term COMMA { [$1] }
+    | term COMMA seq { $1 :: $3 }
