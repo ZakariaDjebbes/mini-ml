@@ -82,11 +82,6 @@ let rec generate_eq term target env =
             let req = generate_eq rt TBool env
             
             leq @ req @ [ (target, TBool) ]
-    | UnaryOperation (t, op) ->
-        match op with
-        | Not ->
-            let eq = generate_eq t TBool env
-            eq @ [ (target, TBool) ]
     | ConsList(l, r) ->
         // let type_el = TVar (name_factory())
         // let type_tail = TList type_el
@@ -127,7 +122,35 @@ let rec generate_eq term target env =
             let eq = (target, type_op)
 
             [eq]
+        | Not ->
+            let type_op = TArr(TBool, TBool)
+            let eq = (target, type_op)
+
+            [eq]
+        | Empty ->
+            let name = name_factory()
+            let type_op = TArr(TList (TVar name), TBool)
+            let eq = (target, type_op)
+
+            [eq]
+        | Zero ->
+            let type_op = TArr(TNum, TBool)
+            let eq = (target, type_op)
             
+            [eq]
+    | IfThenElse (cond, tr, fs) ->
+        let new_var = TVar (name_factory())
+        let cond_eq = generate_eq cond TBool env
+        let tr_eq = generate_eq tr new_var env
+        let fs_eq = generate_eq fs new_var env
+        let eq = (target, new_var)
+        cond_eq @ tr_eq @ fs_eq @ [eq]
+    | IfThen (cond, tr) ->
+        let new_var = TVar (name_factory())
+        let cond_eq = generate_eq cond TBool env
+        let tr_eq = generate_eq tr new_var env
+        let eq = (target, new_var)
+        cond_eq @ tr_eq @ [eq]
 /// Check if a variable is a type
 let rec is_type var t =
     match t with

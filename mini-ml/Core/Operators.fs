@@ -9,14 +9,13 @@ type BinaryOperator =
     | And
     | Or
 
-type UnaryOperator =
-    | Not
-
 type InternalOperator =
     | Head
     | Tail
     | Cons
-
+    | Not
+    | Empty
+    | Zero
 /// Gets the string of an operator to be used in the pretty printer.
 let string_of_binary_perator op =
     match op with
@@ -34,8 +33,7 @@ let string_of_internal_operator op =
     | Head -> "head"
     | Tail -> "tail"
     | Cons -> "cons"
+    | Not -> "not"
+    | Empty -> "empty"
+    | Zero -> "zero"
     
-/// Gets the string of an unary operator to be used in the pretty printer.
-let string_of_unary_operator op =
-    match op with
-    | Not -> "!"

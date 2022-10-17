@@ -19,7 +19,7 @@ let parse text =
     result
 
 try
-        let mutable term: Term = ConsList(Bool true, ConsList(UnaryOperation(Bool false, Not), EmptyList))
+        let mutable term: Term = App(InternalOperation(Not), Num 3)
         logger.logWarning $"Term: %s{string_of_term term}"
 
         let infered = infer_type term

@@ -9,12 +9,13 @@ type Term =
     | App of Term * Term
     | Abs of string * Term
     | BinaryOperation of Term * Term * BinaryOperator
-    | UnaryOperation of Term * UnaryOperator
     | ConsList of Term * Term
     | EmptyList
     | InternalOperation of InternalOperator
     | Bool of bool
-
+    | IfThenElse of Term * Term * Term
+    | IfThen of Term * Term
+    
 /// Get a readable string representation of a term
 let rec string_of_term term =
     match term with
@@ -28,11 +29,12 @@ let rec string_of_term term =
         + ")"
     | Abs (x, t) -> "(λ" + x + "." + string_of_term t + ")"
     | BinaryOperation (l, r, op) -> $"({string_of_term l} {string_of_binary_perator op} {string_of_term r})"
-    | UnaryOperation (t, op) -> $"({string_of_unary_operator op} {string_of_term t})"
     | ConsList (l, r) -> $"({string_of_term l} :: {string_of_term r})"
     | EmptyList -> "[]"
     | InternalOperation op -> string_of_internal_operator op
     | Bool b -> $"{b.ToString().ToLower()}"
+    | IfThenElse (cond, t, f) -> $"if {string_of_term cond} then {string_of_term t} else {string_of_term f}"
+    | IfThen (cond, t) -> $"if {string_of_term cond} then {string_of_term t}"
     
 /// Pretty print a term
 let pretty_print_term term = printfn $"%s{string_of_term term}"
@@ -45,11 +47,12 @@ let rec map_name term f =
     | App (l, r) -> App(map_name l f, map_name r f)
     | Abs (x, t) -> Abs(f x, map_name t f)
     | BinaryOperation (l, r, op) -> BinaryOperation(map_name l f, map_name r f, op)
-    | UnaryOperation (t, op) -> UnaryOperation(map_name t f, op)
     | ConsList (l, r) -> ConsList(map_name l f, map_name r f)
     | EmptyList -> EmptyList
     | InternalOperation op -> InternalOperation op
     | Bool b -> Bool b
+    | IfThenElse (cond, tr, fs) -> IfThenElse(map_name cond f, map_name tr f, map_name fs f)
+    | IfThen (cond, tr) -> IfThen(map_name cond f, map_name tr f)
     
 /// Rename a variable name to a new variable name
 let rec map_var t f bo =
@@ -59,11 +62,12 @@ let rec map_var t f bo =
     | App (l, r) -> App(map_var l f bo, map_var r f bo)
     | Abs (x, t) -> Abs(x, map_var t f (x :: bo))
     | BinaryOperation (l, r, op) -> BinaryOperation(map_var l f bo, map_var r f bo, op)
-    | UnaryOperation (t, op) -> UnaryOperation(map_var t f bo, op)
     | ConsList(l, r) -> ConsList(map_var l f bo, map_var r f bo)
     | EmptyList -> EmptyList
     | InternalOperation op -> InternalOperation op
     | Bool b -> Bool b
+    | IfThenElse (cond, tr, fs) -> IfThenElse(map_var cond f bo, map_var tr f bo, map_var fs f bo)
+    | IfThen (cond, tr) -> IfThen(map_var cond f bo, map_var tr f bo)
     
 /// Substitute a name for a variable in a term
 let substitute_name term from changeTo =
@@ -105,12 +109,12 @@ let rec convert term =
             substitute_name (convert t) x newName
         )
     | BinaryOperation (l, r, op) -> BinaryOperation(convert l, convert r, op)
-    | UnaryOperation (t, op) -> UnaryOperation(convert t, op)
     | ConsList(l, r) -> ConsList(convert l, convert r)
     | EmptyList -> EmptyList
     | InternalOperation op -> InternalOperation op
     | Bool b -> Bool b
-
+    | IfThenElse (cond, tr, fs) -> IfThenElse(convert cond, convert tr, convert fs)
+    | IfThen (cond, tr) -> IfThen(convert cond, convert tr)
 /// Alpha convert a term
 let alpha_convert term =
     convert (map_name term (fun x -> "@" + x))
@@ -131,6 +135,20 @@ let rec reduce term =
                 | ConsList (_, list) -> list, true
                 | _ -> raise(NotSupportedException("Trying to get tail of non-list"))
             | Cons -> r, true // cher po
+            | Not ->
+                match r with
+                | Bool b -> Bool(not b), true
+                | _ -> reduce r
+            | Empty ->
+                match r with
+                | EmptyList -> Bool true, true
+                | ConsList _ -> Bool false, true
+                | _ -> reduce r
+            | Zero ->
+                match r with
+                | Num 0 -> Bool true, true
+                | Num x when x <> 0 -> Bool false, true
+                | _ -> reduce r
         | _ ->
             let rm, has_reduced_m = reduce l
             let rn, has_reduced_n = reduce r
@@ -166,23 +184,29 @@ let rec reduce term =
             ),
             true
         | _ -> BinaryOperation(newL, newR, op), has_reduced_l || has_reduced_r
-    | UnaryOperation (t, op) ->
-        let newT, has_reduced = reduce t
-
-        match newT with
-        | Bool b ->
-            Bool(
-                match op with
-                | Not -> not b
-            ),
-            true
-        | _ -> UnaryOperation(newT, op), has_reduced
     | ConsList (l, r) ->
         let newL, has_reducedL = reduce l
         let newR, has_reducedR = reduce r
         
         ConsList(newL, newR), (has_reducedL || has_reducedR)
     | InternalOperation op -> InternalOperation op, false
+    | IfThenElse (cond, tr, fs) ->
+        let newCond, has_reducedCond = reduce cond
+        let newTr, has_reducedTr = reduce tr
+        let newFs, has_reducedFs = reduce fs
+
+        match newCond with
+        | Bool true -> newTr, true
+        | Bool false -> newFs, true
+        | _ -> IfThenElse(newCond, newTr, newFs), has_reducedCond || has_reducedTr || has_reducedFs
+    | IfThen (cond, tr) ->
+        let newCond, has_reducedCond = reduce cond
+        let newTr, has_reducedTr = reduce tr
+
+        match newCond with
+        | Bool true -> newTr, true
+        | Bool false -> EmptyList, true
+        | _ -> IfThen(newCond, newTr), has_reducedCond || has_reducedTr
     | Var _ | Num _ | EmptyList | Bool _ -> term, false
     
 /// Fully evaluate a term, throwing an exception if it takes too long
