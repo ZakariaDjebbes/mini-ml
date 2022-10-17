@@ -4,8 +4,13 @@ type BinaryOperator =
     | Plus
     | Minus
     | Times
-    | Div
+    | Divide
     | Mod
+    | And
+    | Or
+
+type UnaryOperator =
+    | Not
 
 type InternalOperator =
     | Head
@@ -18,12 +23,19 @@ let string_of_binary_perator op =
     | Plus -> "+"
     | Minus -> "-"
     | Times -> "*"
-    | Div -> "/"
+    | Divide -> "/"
     | Mod -> "%"
-
+    | And -> "&&"
+    | Or -> "||"
+    
 // Gets the string of an internal operator to be used in the pretty printer.
 let string_of_internal_operator op =
     match op with
     | Head -> "head"
     | Tail -> "tail"
     | Cons -> "cons"
+    
+/// Gets the string of an unary operator to be used in the pretty printer.
+let string_of_unary_operator op =
+    match op with
+    | Not -> "!"

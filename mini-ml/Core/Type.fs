@@ -1,5 +1,6 @@
 module Core.Type
 
+open System.Data
 open Core.Term
 open Exceptions.Errors
 open Core.Operators
@@ -69,20 +70,40 @@ let rec generate_eq term target env =
         let req = generate_eq rt type_arg env
         
         leq @ req @ [ (target, type_return) ]
-    | BinaryOperation (lt, rt, _) ->
-        let leq = generate_eq lt TNum env
-        let req = generate_eq rt TNum env
-        
-        leq @ req @ [ (target, TNum) ]
-    | ConsList(l, _) ->
+    | BinaryOperation (lt, rt, op) ->
+        match op with
+        | Plus | Minus | Times | Divide | Mod ->
+            let leq = generate_eq lt TNum env
+            let req = generate_eq rt TNum env
+            
+            leq @ req @ [ (target, TNum) ]
+        | And | Or ->
+            let leq = generate_eq lt TBool env
+            let req = generate_eq rt TBool env
+            
+            leq @ req @ [ (target, TBool) ]
+    | UnaryOperation (t, op) ->
+        match op with
+        | Not ->
+            let eq = generate_eq t TBool env
+            eq @ [ (target, TBool) ]
+    | ConsList(l, r) ->
+        // let type_el = TVar (name_factory())
+        // let type_tail = TList type_el
+        //
+        // let leq = generate_eq l type_el env
+        // let teq = (target, type_tail)
+        // let final = (type_tail, TList type_el) 
+
         let type_el = TVar (name_factory())
-        let type_tail = TList type_el
+        let type_tail = TVar (name_factory())
         
         let leq = generate_eq l type_el env
+        let req = generate_eq r type_tail env
         let teq = (target, type_tail)
         let final = (type_tail, TList type_el) 
         
-        leq @ [teq; final]
+        req @ leq @ [teq; final]
     | EmptyList ->
         let new_var = name_factory()
         [(target, TList (TVar new_var))]
@@ -161,7 +182,7 @@ let rec unify_one (eqs: Equations) (target: Type) : Equations =
                      (i, [], [ (v, t) ])
              | TArr (l1, r1), TArr (l2, r2) -> (i, [ (l1, l2); (r1, r2) ], [])
              | TList l, TList r  -> (i, [(l, r)], [])
-             | l, r -> raise (TypeMismatchException($"Unification failed between %O{l} and %O{r}"))))
+             | l, r -> raise (InvalidExpressionException($"Unification failed between {string_of_type l} and {string_of_type r}"))))
         |> List.head
     let index, news, substs = res
     let eqs = List.removeAt index eqs

@@ -26,13 +26,15 @@ rule tokenstream = parse
 | "["     { Parser.LBRACK }
 | "]"     { Parser.RBRACK }
 | ","     { Parser.COMMA }
-| "head"   { Parser.HEAD }
-| "tail"   { Parser.TAIL }
+| "&&"   { Parser.AND }
+| "||"   { Parser.OR }
 | "+"       { Parser.PLUS }
 | "-"       { Parser.MINUS }
 | "*"       { Parser.TIMES }
 | "/"       { Parser.DIV }
 | "%"    { Parser.MOD }
+| "true"  { Parser.TRUE }
+| "false" { Parser.FALSE }
 | ident    { Parser.IDENT (lexeme lexbuf) }
 | num      { Parser.NUM (int (lexeme lexbuf)) }
 // --------------------------

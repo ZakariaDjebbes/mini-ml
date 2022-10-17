@@ -16,6 +16,7 @@
     <Compile Include="Core/Term.fs" />
     <Compile Include="Core/Type.fs" />
     <Compile Include="Helpers/GrammarHelpers.fs" />
+    <Compile Include="Helpers\Logger.fs" />
 
     <FsYacc Include="Grammar/Parser.fsy">
       <OtherFlags>--module Parser</OtherFlags>

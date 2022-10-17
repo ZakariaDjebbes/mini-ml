@@ -15,13 +15,15 @@ open Helpers.GrammarHelpers
 %token DOUBLECOLON
 %token ARROW
 %token PLUS
-%token HEAD
-%token TAIL
 %token COMMA
 %token MINUS 
 %token TIMES
 %token DIV 
 %token MOD
+%token AND
+%token OR
+%token TRUE
+%token FALSE
 %token <string> IDENT
 %token <int> NUM
 
@@ -50,16 +52,17 @@ list:
     | expr { $1 }
     | expr DOUBLECOLON list { ConsList($1, $3) }
     
-	
 expr:
     | expr PLUS factor { BinaryOperation($1, $3, Plus) }
     | expr MINUS factor { BinaryOperation($1, $3, Minus) }
+    | expr OR factor { BinaryOperation($1, $3, Or) }
     | factor { $1 }
     
 factor:
     | factor TIMES app { BinaryOperation($1, $3, Times) }
-    | factor DIV app { BinaryOperation($1, $3, Div) }
+    | factor DIV app { BinaryOperation($1, $3, Divide) }
     | factor MOD app { BinaryOperation($1, $3, Mod) }
+    | expr AND factor { BinaryOperation($1, $3, And) }
     | app { $1 }
 
 app: 
@@ -68,6 +71,8 @@ app:
 
 atom:
     | NUM { Num($1) }
+    | TRUE { Bool(true) }
+    | FALSE { Bool(false) }
 	| IDENT { Var($1) }
 	| LPAR term RPAR { $2 }
 	| LBRACK RBRACK { EmptyList }

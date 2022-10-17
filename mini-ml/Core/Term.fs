@@ -9,6 +9,7 @@ type Term =
     | App of Term * Term
     | Abs of string * Term
     | BinaryOperation of Term * Term * BinaryOperator
+    | UnaryOperation of Term * UnaryOperator
     | ConsList of Term * Term
     | EmptyList
     | InternalOperation of InternalOperator
@@ -27,6 +28,7 @@ let rec string_of_term term =
         + ")"
     | Abs (x, t) -> "(λ" + x + "." + string_of_term t + ")"
     | BinaryOperation (l, r, op) -> $"({string_of_term l} {string_of_binary_perator op} {string_of_term r})"
+    | UnaryOperation (t, op) -> $"({string_of_unary_operator op} {string_of_term t})"
     | ConsList (l, r) -> $"({string_of_term l} :: {string_of_term r})"
     | EmptyList -> "[]"
     | InternalOperation op -> string_of_internal_operator op
@@ -43,6 +45,7 @@ let rec map_name term f =
     | App (l, r) -> App(map_name l f, map_name r f)
     | Abs (x, t) -> Abs(f x, map_name t f)
     | BinaryOperation (l, r, op) -> BinaryOperation(map_name l f, map_name r f, op)
+    | UnaryOperation (t, op) -> UnaryOperation(map_name t f, op)
     | ConsList (l, r) -> ConsList(map_name l f, map_name r f)
     | EmptyList -> EmptyList
     | InternalOperation op -> InternalOperation op
@@ -56,6 +59,7 @@ let rec map_var t f bo =
     | App (l, r) -> App(map_var l f bo, map_var r f bo)
     | Abs (x, t) -> Abs(x, map_var t f (x :: bo))
     | BinaryOperation (l, r, op) -> BinaryOperation(map_var l f bo, map_var r f bo, op)
+    | UnaryOperation (t, op) -> UnaryOperation(map_var t f bo, op)
     | ConsList(l, r) -> ConsList(map_var l f bo, map_var r f bo)
     | EmptyList -> EmptyList
     | InternalOperation op -> InternalOperation op
@@ -101,6 +105,7 @@ let rec convert term =
             substitute_name (convert t) x newName
         )
     | BinaryOperation (l, r, op) -> BinaryOperation(convert l, convert r, op)
+    | UnaryOperation (t, op) -> UnaryOperation(convert t, op)
     | ConsList(l, r) -> ConsList(convert l, convert r)
     | EmptyList -> EmptyList
     | InternalOperation op -> InternalOperation op
@@ -147,11 +152,31 @@ let rec reduce term =
                 | Plus -> n1 + n2
                 | Minus -> n1 - n2
                 | Times -> n1 * n2
-                | Div -> n1 / n2
+                | Divide -> n1 / n2
                 | Mod -> n1 % n2
+                | _ -> raise(NotSupportedException($"Invalid usage of binary operator {string_of_binary_perator op} on non-numbers"))
+            ),
+            true
+        | Bool b1, Bool b2 ->
+            Bool(
+                match op with
+                | And -> b1 && b2
+                | Or -> b1 || b2
+                | _ -> raise(NotSupportedException($"Invalid usage of binary operator {string_of_binary_perator op} on non-booleans"))
             ),
             true
         | _ -> BinaryOperation(newL, newR, op), has_reduced_l || has_reduced_r
+    | UnaryOperation (t, op) ->
+        let newT, has_reduced = reduce t
+
+        match newT with
+        | Bool b ->
+            Bool(
+                match op with
+                | Not -> not b
+            ),
+            true
+        | _ -> UnaryOperation(newT, op), has_reduced
     | ConsList (l, r) ->
         let newL, has_reducedL = reduce l
         let newR, has_reducedR = reduce r
