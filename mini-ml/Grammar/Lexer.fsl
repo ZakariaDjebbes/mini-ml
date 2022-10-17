@@ -26,6 +26,8 @@ rule tokenstream = parse
 | "["     { Parser.LBRACK }
 | "]"     { Parser.RBRACK }
 | ","     { Parser.COMMA }
+| "head"   { Parser.HEAD }
+| "tail"   { Parser.TAIL }
 | "+"       { Parser.PLUS }
 | "-"       { Parser.MINUS }
 | "*"       { Parser.TIMES }

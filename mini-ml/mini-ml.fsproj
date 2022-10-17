@@ -11,9 +11,11 @@
     <FsLexOutputFolder>$(IntermediateOutputPath)Grammar/</FsLexOutputFolder>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Exceptions\Errors.fs" />
+    <Compile Include="Exceptions/Errors.fs" />
+    <Compile Include="Core/Operators.fs" /> 
     <Compile Include="Core/Term.fs" />
-    <Compile Include="Core/Type.fs" /> 
+    <Compile Include="Core/Type.fs" />
+    <Compile Include="Helpers/GrammarHelpers.fs" />
 
     <FsYacc Include="Grammar/Parser.fsy">
       <OtherFlags>--module Parser</OtherFlags>

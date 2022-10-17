@@ -2,12 +2,14 @@ module Core.Type
 
 open Core.Term
 open Exceptions.Errors
+open Core.Operators
 
 type Type =
     | TVar of string
     | TArr of Type * Type
     | TList of Type    
     | TNum
+    | TBool
 
 type Env = (string * Type) list
 
@@ -25,6 +27,7 @@ let rec string_of_type t =
         + string_of_type t2
         + ")"
     | TList t -> "List<" + string_of_type t + ">"
+    | TBool -> "bool"
 
 /// Pretty print a type
 let pretty_print_type t = printfn $"%s{string_of_type t}"
@@ -37,7 +40,7 @@ let pretty_print_equation eq =
 /// Find the type of a variable in an environement
 let rec find_type var env =
     match env with
-    | [] -> raise (System.MissingFieldException($"Type of Variable {var} not found in {env}"))
+    | [] -> raise (System.MissingFieldException($"Type of Variable {var} not found in env: {env}"))
     | (v, t) :: _ when v = var -> t
     | (_, _) :: remaining -> (find_type var remaining)
 
@@ -48,6 +51,7 @@ let rec generate_eq term target env =
         let t = find_type x env
         [ (target, t) ]
     | Num _ -> [ (target, TNum) ]
+    | Bool _ -> [ (target, TBool) ]
     | Abs (x, t) ->
         let ta = name_factory ()
         let tr = name_factory ()
@@ -59,51 +63,65 @@ let rec generate_eq term target env =
 
         left_side :: resolved
     | App (lt, rt) ->
-        let new_var = name_factory ()
-        let leq = generate_eq lt (TArr(TVar new_var, target)) env
-        let req = generate_eq rt (TVar new_var) env
-
-        leq @ req
+        let type_arg = TVar(name_factory ())
+        let type_return = TVar(name_factory ())
+        let leq = generate_eq lt (TArr(type_arg, type_return)) env
+        let req = generate_eq rt type_arg env
+        
+        leq @ req @ [ (target, type_return) ]
     | BinaryOperation (lt, rt, _) ->
         let leq = generate_eq lt TNum env
         let req = generate_eq rt TNum env
         
         leq @ req @ [ (target, TNum) ]
-    | ConsList(l, r) ->
+    | ConsList(l, _) ->
         let type_el = TVar (name_factory())
-        let type_tail = TVar (name_factory())
+        let type_tail = TList type_el
         
         let leq = generate_eq l type_el env
-        let req = generate_eq r type_tail env
         let teq = (target, type_tail)
         let final = (type_tail, TList type_el) 
         
-        leq @ req @ [teq; final]
+        leq @ [teq; final]
     | EmptyList ->
         let new_var = name_factory()
         [(target, TList (TVar new_var))]
-    | Let (x, e1, e2) ->
-        let new_var = name_factory ()
-        let leq = generate_eq e1 (TVar new_var) env
-        let req = generate_eq e2 target ((x, TVar new_var) :: env)
+    | InternalOperation op ->
+        match op with
+        | Head ->
+            let name = name_factory()
+            let type_op = TArr(TList (TVar name), TVar name)
+            let eq = (target, type_op)
 
-        leq @ req
-        
+            [eq]
+        | Tail ->
+            let name = name_factory()
+            let type_op = TArr(TList (TVar name), TList (TVar name))
+            let eq = (target, type_op)
+
+            [eq]
+        | Cons ->
+            let name = name_factory()
+            let type_op = TArr(TVar name, TArr(TList (TVar name), TList (TVar name)))
+            let eq = (target, type_op)
+
+            [eq]
+            
 /// Check if a variable is a type
 let rec is_type var t =
     match t with
     | TVar v -> v = var
     | TArr (t1, t2) -> (is_type var t1) || (is_type var t2)
-    | TNum -> false
     | TList t -> is_type var t
+    | TNum | TBool-> false
 
 /// Map a type to the output of a function
 let rec map_type t fn =
     match t with
     | TVar v -> fn v
     | TArr (t1, t2) -> TArr(map_type t1 fn, map_type t2 fn)
-    | TNum -> t
     | TList t -> TList(map_type t fn)
+    | TNum | TBool -> t
 
 /// Substitute a type for a variable
 let sub_type from changeTo in_t =

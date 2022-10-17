@@ -1,5 +1,7 @@
 ﻿%{
 open Core.Term
+open Core.Operators
+open Helpers.GrammarHelpers
 %}
 
 // The start token becomes a parser function in the compiled code:
@@ -13,6 +15,8 @@ open Core.Term
 %token DOUBLECOLON
 %token ARROW
 %token PLUS
+%token HEAD
+%token TAIL
 %token COMMA
 %token MINUS 
 %token TIMES

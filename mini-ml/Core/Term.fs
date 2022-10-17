@@ -1,39 +1,18 @@
 ﻿module Core.Term
 
 open System
-
-type Operator =
-    | Plus
-    | Minus
-    | Times
-    | Div
-    | Mod
+open Core.Operators
 
 type Term =
     | Var of string
     | Num of int
     | App of Term * Term
     | Abs of string * Term
-    | BinaryOperation of Term * Term * Operator
+    | BinaryOperation of Term * Term * BinaryOperator
     | ConsList of Term * Term
-    | EmptyList 
-    | Let of string * Term * Term
-
-let ListTermToTerm (l:Term list) : Term =
-    let mutable res = EmptyList
-    let l = List.rev l
-    for i in l do
-        res <- ConsList(i, res)
-    res
-
-/// Gets the string of an operator to be used in the pretty printer.
-let string_of_operator op =
-    match op with
-    | Plus -> "+"
-    | Minus -> "-"
-    | Times -> "*"
-    | Div -> "/"
-    | Mod -> "%"
+    | EmptyList
+    | InternalOperation of InternalOperator
+    | Bool of bool
 
 /// Get a readable string representation of a term
 let rec string_of_term term =
@@ -47,10 +26,11 @@ let rec string_of_term term =
         + string_of_term r
         + ")"
     | Abs (x, t) -> "(λ" + x + "." + string_of_term t + ")"
-    | BinaryOperation (l, r, op) -> $"({string_of_term l} {string_of_operator op} {string_of_term r})"
+    | BinaryOperation (l, r, op) -> $"({string_of_term l} {string_of_binary_perator op} {string_of_term r})"
     | ConsList (l, r) -> $"({string_of_term l} :: {string_of_term r})"
     | EmptyList -> "[]"
-    | Let (x, e1, e2) -> $"(let {x} = {string_of_term e1} in {string_of_term e2})"
+    | InternalOperation op -> string_of_internal_operator op
+    | Bool b -> $"{b.ToString().ToLower()}"
     
 /// Pretty print a term
 let pretty_print_term term = printfn $"%s{string_of_term term}"
@@ -65,7 +45,8 @@ let rec map_name term f =
     | BinaryOperation (l, r, op) -> BinaryOperation(map_name l f, map_name r f, op)
     | ConsList (l, r) -> ConsList(map_name l f, map_name r f)
     | EmptyList -> EmptyList
-    | Let (x, e1, e2) -> Let(f x, map_name e1 f, map_name e2 f)
+    | InternalOperation op -> InternalOperation op
+    | Bool b -> Bool b
     
 /// Rename a variable name to a new variable name
 let rec map_var t f bo =
@@ -77,7 +58,8 @@ let rec map_var t f bo =
     | BinaryOperation (l, r, op) -> BinaryOperation(map_var l f bo, map_var r f bo, op)
     | ConsList(l, r) -> ConsList(map_var l f bo, map_var r f bo)
     | EmptyList -> EmptyList
-    | Let (x, e1, e2) -> Let(x, map_var e1 f bo, map_var e2 f (x :: bo))
+    | InternalOperation op -> InternalOperation op
+    | Bool b -> Bool b
     
 /// Substitute a name for a variable in a term
 let substitute_name term from changeTo =
@@ -121,17 +103,9 @@ let rec convert term =
     | BinaryOperation (l, r, op) -> BinaryOperation(convert l, convert r, op)
     | ConsList(l, r) -> ConsList(convert l, convert r)
     | EmptyList -> EmptyList
-    | Let (x, e1, e2) ->
-        let newName = name_factory ()
+    | InternalOperation op -> InternalOperation op
+    | Bool b -> Bool b
 
-        Let(
-            (if x.StartsWith('@') then
-                 newName
-             else
-                 x),
-            convert e1,
-            substitute_name (convert e2) x newName
-        )
 /// Alpha convert a term
 let alpha_convert term =
     convert (map_name term (fun x -> "@" + x))
@@ -140,12 +114,25 @@ let alpha_convert term =
 let rec reduce term =
     match term with
     | App (l, r) ->
-        let rm, has_reduced_m = reduce l
-        let rn, has_reduced_n = reduce r
+        match l with
+        | InternalOperation op ->
+            match op with
+            | Head ->
+                match r with
+                | ConsList (elem, _) -> elem, true
+                | _ -> raise(NotSupportedException("Trying to get the head of a non-list"))
+            | Tail ->
+                match r with
+                | ConsList (_, list) -> list, true
+                | _ -> raise(NotSupportedException("Trying to get tail of non-list"))
+            | Cons -> r, true // cher po
+        | _ ->
+            let rm, has_reduced_m = reduce l
+            let rn, has_reduced_n = reduce r
 
-        match rm with
-        | Abs (x, t) -> substitute_var t x rn, true
-        | _ -> App(rm, rn), has_reduced_m || has_reduced_n
+            match rm with
+            | Abs (x, t) -> substitute_var t x rn, true
+            | _ -> App(rm, rn), has_reduced_m || has_reduced_n
     | Abs (x, t) ->
         let t, has_reduced = reduce t
         Abs(x, t), has_reduced
@@ -170,14 +157,8 @@ let rec reduce term =
         let newR, has_reducedR = reduce r
         
         ConsList(newL, newR), (has_reducedL || has_reducedR)
-    | Let (x, e1, e2) ->
-        let newE1, has_reduced_e1 = reduce e1
-        let newE2, has_reduced_e2 = reduce e2
-
-        match newE1 with
-        | Abs (y, t) -> substitute_var t y newE2, true
-        | _ -> Let(x, newE1, newE2), has_reduced_e1 || has_reduced_e2
-    | Var _ | Num _ | EmptyList -> term, false
+    | InternalOperation op -> InternalOperation op, false
+    | Var _ | Num _ | EmptyList | Bool _ -> term, false
     
 /// Fully evaluate a term, throwing an exception if it takes too long
 let evaluate term =
