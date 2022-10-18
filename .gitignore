@@ -6,3 +6,4 @@ obj
 Parser.fs
 Lexer.fs
 Parser.fsi
+.fake

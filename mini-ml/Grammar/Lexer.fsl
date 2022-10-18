@@ -35,6 +35,9 @@ rule tokenstream = parse
 | "%"    { Parser.MOD }
 | "true"  { Parser.TRUE }
 | "false" { Parser.FALSE }
+| "if"    { Parser.IF }
+| "then"  { Parser.THEN }
+| "else"  { Parser.ELSE }
 | ident    { Parser.IDENT (lexeme lexbuf) }
 | num      { Parser.NUM (int (lexeme lexbuf)) }
 // --------------------------

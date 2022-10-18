@@ -14,7 +14,6 @@ type Term =
     | InternalOperation of InternalOperator
     | Bool of bool
     | IfThenElse of Term * Term * Term
-    | IfThen of Term * Term
     
 /// Get a readable string representation of a term
 let rec string_of_term term =
@@ -34,7 +33,6 @@ let rec string_of_term term =
     | InternalOperation op -> string_of_internal_operator op
     | Bool b -> $"{b.ToString().ToLower()}"
     | IfThenElse (cond, t, f) -> $"if {string_of_term cond} then {string_of_term t} else {string_of_term f}"
-    | IfThen (cond, t) -> $"if {string_of_term cond} then {string_of_term t}"
     
 /// Pretty print a term
 let pretty_print_term term = printfn $"%s{string_of_term term}"
@@ -52,7 +50,6 @@ let rec map_name term f =
     | InternalOperation op -> InternalOperation op
     | Bool b -> Bool b
     | IfThenElse (cond, tr, fs) -> IfThenElse(map_name cond f, map_name tr f, map_name fs f)
-    | IfThen (cond, tr) -> IfThen(map_name cond f, map_name tr f)
     
 /// Rename a variable name to a new variable name
 let rec map_var t f bo =
@@ -67,7 +64,6 @@ let rec map_var t f bo =
     | InternalOperation op -> InternalOperation op
     | Bool b -> Bool b
     | IfThenElse (cond, tr, fs) -> IfThenElse(map_var cond f bo, map_var tr f bo, map_var fs f bo)
-    | IfThen (cond, tr) -> IfThen(map_var cond f bo, map_var tr f bo)
     
 /// Substitute a name for a variable in a term
 let substitute_name term from changeTo =
@@ -114,7 +110,6 @@ let rec convert term =
     | InternalOperation op -> InternalOperation op
     | Bool b -> Bool b
     | IfThenElse (cond, tr, fs) -> IfThenElse(convert cond, convert tr, convert fs)
-    | IfThen (cond, tr) -> IfThen(convert cond, convert tr)
 /// Alpha convert a term
 let alpha_convert term =
     convert (map_name term (fun x -> "@" + x))
@@ -199,14 +194,6 @@ let rec reduce term =
         | Bool true -> newTr, true
         | Bool false -> newFs, true
         | _ -> IfThenElse(newCond, newTr, newFs), has_reducedCond || has_reducedTr || has_reducedFs
-    | IfThen (cond, tr) ->
-        let newCond, has_reducedCond = reduce cond
-        let newTr, has_reducedTr = reduce tr
-
-        match newCond with
-        | Bool true -> newTr, true
-        | Bool false -> EmptyList, true
-        | _ -> IfThen(newCond, newTr), has_reducedCond || has_reducedTr
     | Var _ | Num _ | EmptyList | Bool _ -> term, false
     
 /// Fully evaluate a term, throwing an exception if it takes too long

@@ -83,22 +83,14 @@ let rec generate_eq term target env =
             
             leq @ req @ [ (target, TBool) ]
     | ConsList(l, r) ->
-        // let type_el = TVar (name_factory())
-        // let type_tail = TList type_el
-        //
-        // let leq = generate_eq l type_el env
-        // let teq = (target, type_tail)
-        // let final = (type_tail, TList type_el) 
-
         let type_el = TVar (name_factory())
-        let type_tail = TVar (name_factory())
+        let type_tail = TList type_el
         
         let leq = generate_eq l type_el env
         let req = generate_eq r type_tail env
         let teq = (target, type_tail)
-        let final = (type_tail, TList type_el) 
-        
-        req @ leq @ [teq; final]
+
+        leq @ [teq;] @ req
     | EmptyList ->
         let new_var = name_factory()
         [(target, TList (TVar new_var))]
@@ -145,12 +137,7 @@ let rec generate_eq term target env =
         let fs_eq = generate_eq fs new_var env
         let eq = (target, new_var)
         cond_eq @ tr_eq @ fs_eq @ [eq]
-    | IfThen (cond, tr) ->
-        let new_var = TVar (name_factory())
-        let cond_eq = generate_eq cond TBool env
-        let tr_eq = generate_eq tr new_var env
-        let eq = (target, new_var)
-        cond_eq @ tr_eq @ [eq]
+
 /// Check if a variable is a type
 let rec is_type var t =
     match t with

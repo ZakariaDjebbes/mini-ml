@@ -24,6 +24,9 @@ open Helpers.GrammarHelpers
 %token OR
 %token TRUE
 %token FALSE
+%token IF
+%token THEN
+%token ELSE
 %token <string> IDENT
 %token <int> NUM
 
@@ -39,15 +42,19 @@ open Helpers.GrammarHelpers
 // These are the rules of the grammar along with the F# code of the 
 // actions executed as rules are reduced.  
 start:
-	| term EOF { $1 }
+	| term EOF { $1 }    
 
 term: 
 	| abs { $1 }
-	
+
 abs:
 	| IDENT ARROW abs { Abs($1, $3) }
-	| list { $1 }
-	
+	| cond { $1 }
+
+cond:
+    | IF list THEN list ELSE list { IfThenElse($2, $4, $6) }
+    | list { $1 }
+  
 list:
     | expr { $1 }
     | expr DOUBLECOLON list { ConsList($1, $3) }
