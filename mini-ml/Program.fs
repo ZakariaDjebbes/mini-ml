@@ -6,7 +6,6 @@ open Core.Type
 open FSharp.Text.Lexing
 open Exceptions.Errors
 open Helpers.Logger
-open Core.Operators
 
 let logger = Logger()
 
@@ -44,11 +43,14 @@ while true do
     try
             logger.Line <- false
             logger.logDefault"> "
-            let mutable term = parse (Console.ReadLine())
             logger.Line <- true
-
+            
+            let mutable term = parse (Console.ReadLine())
             logger.logWarning $"Term: %s{string_of_term term}"
 
+            term <- alpha_convert term
+            logger.logFatal $"Alpha converted: %s{string_of_term term}"
+            
             let infered = infer_type term
             logger.logSuccess $"Type: %s{string_of_type infered}"
 

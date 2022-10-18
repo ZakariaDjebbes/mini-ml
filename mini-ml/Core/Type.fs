@@ -3,7 +3,8 @@ module Core.Type
 open System.Data
 open Core.Term
 open Exceptions.Errors
-open Core.Operators
+open Core.Operators.InternalOperator
+open Core.Operators.BinaryOperator
 
 type Type =
     | TVar of string

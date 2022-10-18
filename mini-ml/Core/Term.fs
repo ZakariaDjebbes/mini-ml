@@ -1,7 +1,8 @@
 ﻿module Core.Term
 
 open System
-open Core.Operators
+open Core.Operators.InternalOperator
+open Core.Operators.BinaryOperator
 
 type Term =
     | Var of string
@@ -91,25 +92,41 @@ let name_factory =
 /// Converts a term to a new fresh name
 let rec convert term =
     match term with
-    | Var x -> Var x
-    | Num n -> Num n
-    | App (l, r) -> App(convert l, convert r)
     | Abs (x, t) ->
         let newName = name_factory ()
-
-        Abs(
-            (if x.StartsWith('@') then
-                 newName
-             else
-                 x),
-            substitute_name (convert t) x newName
-        )
+        Abs((if x.StartsWith('@') then newName else x),
+             let subbed = substitute_name t x newName
+             convert subbed)
+    | App (l, r) ->
+        match l with
+        | Var t ->
+            match t with
+            | "@head" -> App(InternalOperation Head, r)
+            | "@tail" -> App(InternalOperation Tail, r)
+            | "@not" -> App(InternalOperation Not, r)
+            | "@empty" -> App(InternalOperation Empty, r)
+            | "@zero" -> App(InternalOperation Zero, r)
+            | "@cons" -> App(InternalOperation Cons, r)
+            | _ -> App(convert l, convert r)
+        | _ -> App(convert l, convert r)
+    | Var x ->
+        // Var x
+        match x with
+        | "@head" -> InternalOperation Head
+        | "@tail" -> InternalOperation Tail
+        | "@not" -> InternalOperation Not
+        | "@empty" -> InternalOperation Empty
+        | "@zero" -> InternalOperation Zero
+        | "@cons" -> InternalOperation Cons
+        | _ -> Var x
+    | Num n -> Num n
     | BinaryOperation (l, r, op) -> BinaryOperation(convert l, convert r, op)
     | ConsList(l, r) -> ConsList(convert l, convert r)
     | EmptyList -> EmptyList
     | InternalOperation op -> InternalOperation op
     | Bool b -> Bool b
     | IfThenElse (cond, tr, fs) -> IfThenElse(convert cond, convert tr, convert fs)
+    
 /// Alpha convert a term
 let alpha_convert term =
     convert (map_name term (fun x -> "@" + x))

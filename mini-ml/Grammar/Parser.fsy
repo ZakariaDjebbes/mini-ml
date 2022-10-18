@@ -1,6 +1,7 @@
 ﻿%{
 open Core.Term
-open Core.Operators
+open Core.Operators.BinaryOperator
+open Core.Operators.InternalOperator
 open Helpers.GrammarHelpers
 %}
 
