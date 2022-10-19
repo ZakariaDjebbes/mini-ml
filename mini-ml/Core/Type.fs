@@ -4,7 +4,6 @@ open System.Data
 open Core.Term
 open Exceptions.Errors
 open Core.Operators.InternalOperator
-open Core.Operators.BinaryOperator
 
 type Type =
     | TVar of string
@@ -71,24 +70,21 @@ let rec generate_eq term target env =
         let req = generate_eq rt type_arg env
         
         leq @ req @ [ (target, type_return) ]
-    | BinaryOperation (lt, rt, op) ->
-        match op with
-        | Plus | Minus | Times | Divide | Mod ->
-            let leq = generate_eq lt TNum env
-            let req = generate_eq rt TNum env
-            
-            leq @ req @ [ (target, TNum) ]
-        | And | Or ->
-            let leq = generate_eq lt TBool env
-            let req = generate_eq rt TBool env
-            
-            leq @ req @ [ (target, TBool) ]
-        | Equals | NotEquals | LessThan | LessThanOrEqual | GreaterThan | GreaterThanOrEqual ->
-            let new_type = TVar(name_factory ())
-            let leq = generate_eq lt new_type env
-            let req = generate_eq rt new_type env
-            
-            leq @ req @ [ (target, TBool) ]
+    | NumOperation (lt, rt, _) ->
+        let leq = generate_eq lt TNum env
+        let req = generate_eq rt TNum env
+        
+        leq @ req @ [ (target, TNum) ]
+    | BoolOperation (lt, rt, _) ->
+        let leq = generate_eq lt TBool env
+        let req = generate_eq rt TBool env
+        
+        leq @ req @ [ (target, TBool) ]
+    | ComparisonOperation (lt, rt, _) ->
+        let leq = generate_eq lt TNum env
+        let req = generate_eq rt TNum env
+        
+        leq @ req @ [ (target, TBool) ]
     | ConsList(l, r) ->
         let type_el = TVar (name_factory())
         let type_tail = TList type_el

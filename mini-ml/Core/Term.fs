@@ -2,14 +2,16 @@
 
 open System
 open Core.Operators.InternalOperator
-open Core.Operators.BinaryOperator
+open Core.Operators.BinaryOperators
 
 type Term =
     | Var of string
     | Num of int
     | App of Term * Term
     | Abs of string * Term
-    | BinaryOperation of Term * Term * BinaryOperator
+    | NumOperation of Term * Term * NumOperator
+    | BoolOperation of Term * Term * BoolOperator
+    | ComparisonOperation of Term * Term * ComparisonOperator
     | ConsList of Term * Term
     | EmptyList
     | InternalOperation of InternalOperator
@@ -29,7 +31,9 @@ let rec string_of_term term =
         + string_of_term r
         + ")"
     | Abs (x, t) -> "(λ" + x + "." + string_of_term t + ")"
-    | BinaryOperation (l, r, op) -> $"({string_of_term l} {string_of_binary_perator op} {string_of_term r})"
+    | NumOperation (l, r, op) -> $"({string_of_term l} {string_of_num_operator op} {string_of_term r})"
+    | BoolOperation (l, r, op) -> $"({string_of_term l} {string_of_bool_operator op} {string_of_term r})"
+    | ComparisonOperation (l, r, op) -> $"({string_of_term l} {string_of_comparison_operator op} {string_of_term r})"
     | ConsList (l, r) -> $"({string_of_term l} :: {string_of_term r})"
     | EmptyList -> "[]"
     | InternalOperation op -> string_of_internal_operator op
@@ -46,7 +50,9 @@ let rec map_name term f =
     | Num n -> Num n
     | App (l, r) -> App(map_name l f, map_name r f)
     | Abs (x, t) -> Abs(f x, map_name t f)
-    | BinaryOperation (l, r, op) -> BinaryOperation(map_name l f, map_name r f, op)
+    | NumOperation (l, r, op) -> NumOperation(map_name l f, map_name r f, op)
+    | BoolOperation (l, r, op) -> BoolOperation(map_name l f, map_name r f, op)
+    | ComparisonOperation (l, r, op) -> ComparisonOperation(map_name l f, map_name r f, op)
     | ConsList (l, r) -> ConsList(map_name l f, map_name r f)
     | EmptyList -> EmptyList
     | InternalOperation op -> InternalOperation op
@@ -60,7 +66,9 @@ let rec map_var term func bo =
     | Num n -> Num n
     | App (l, r) -> App(map_var l func bo, map_var r func bo)
     | Abs (x, t) -> Abs(x, map_var t func (x :: bo))
-    | BinaryOperation (l, r, op) -> BinaryOperation(map_var l func bo, map_var r func bo, op)
+    | NumOperation (l, r, op) -> NumOperation(map_var l func bo, map_var r func bo, op)
+    | BoolOperation (l, r, op) -> BoolOperation(map_var l func bo, map_var r func bo, op)
+    | ComparisonOperation (l, r, op) -> ComparisonOperation(map_var l func bo, map_var r func bo, op)
     | ConsList(l, r) -> ConsList(map_var l func bo, map_var r func bo)
     | EmptyList -> EmptyList
     | InternalOperation op -> InternalOperation op
@@ -101,7 +109,9 @@ let rec convert term =
     | App (l, r) -> App(convert l, convert r)
     | Var x -> Var x
     | Num n -> Num n
-    | BinaryOperation (l, r, op) -> BinaryOperation(convert l, convert r, op)
+    | NumOperation (l, r, op) -> NumOperation(convert l, convert r, op)
+    | BoolOperation (l, r, op) -> BoolOperation(convert l, convert r, op)
+    | ComparisonOperation (l, r, op) -> ComparisonOperation(convert l, convert r, op)
     | ConsList(l, r) -> ConsList(convert l, convert r)
     | EmptyList -> EmptyList
     | InternalOperation op -> InternalOperation op
@@ -139,10 +149,9 @@ let rec reduce term =
             | _, _ -> App(rm, rn), has_reduced_m || has_reduced_n
         | _ -> App(rm, rn), has_reduced_m || has_reduced_n
     | Abs (x, t) -> Abs(x, t), false
-    | BinaryOperation (l, r, op) ->
+    | NumOperation (l, r, op) ->
         let newL, has_reduced_l = reduce l
         let newR, has_reduced_r = reduce r
-
         match newL, newR with
         | Num n1, Num n2 ->
             match op with
@@ -151,21 +160,30 @@ let rec reduce term =
             | Times -> Num(n1 * n2), true
             | Divide -> Num(n1 / n2), true
             | Mod -> Num(n1 % n2), true
-            | Equals -> Bool(n1 = n2), true
-            | NotEquals -> Bool(n1 <> n2), true
-            | LessThan -> Bool(n1 < n2), true
-            | LessThanOrEqual -> Bool(n1 <= n2), true
-            | GreaterThan -> Bool(n1 > n2), true
-            | GreaterThanOrEqual -> Bool(n1 >= n2), true
-            | _ -> raise(NotSupportedException($"Invalid usage of binary operator {string_of_binary_perator op} on non-numbers"))
+        | _ -> NumOperation(newL, newR, op), has_reduced_l || has_reduced_r
+    | BoolOperation (l, r, op) ->
+        let newL, has_reduced_l = reduce l
+        let newR, has_reduced_r = reduce r
+        match newL, newR with
         | Bool b1, Bool b2 ->
             match op with
             | And -> Bool(b1 && b2), true
             | Or -> Bool(b1 || b2), true
-            | Equals -> Bool(b1 = b2), true
-            | NotEquals -> Bool(b1 <> b2), true
-            | _ -> raise(NotSupportedException($"Invalid usage of binary operator {string_of_binary_perator op} on non-booleans"))
-        | _ -> BinaryOperation(newL, newR, op), has_reduced_l || has_reduced_r
+        | _ -> BoolOperation(newL, newR, op), has_reduced_l || has_reduced_r
+    | ComparisonOperation (l, r, op) ->
+        let newL, has_reduced_l = reduce l
+        let newR, has_reduced_r = reduce r
+            
+        match newL, newR with
+        | Num n1, Num n2 ->
+            match op with
+            | LessThan -> Bool(n1 < n2), true
+            | LessThanOrEqual -> Bool(n1 <= n2), true
+            | GreaterThan -> Bool(n1 > n2), true
+            | GreaterThanOrEqual -> Bool(n1 >= n2), true
+            | Equals -> Bool(n1 = n2), true
+            | NotEquals -> Bool(n1 <> n2), true
+        | _ -> ComparisonOperation(newL, newR, op), has_reduced_l || has_reduced_r
     | ConsList (l, r) ->
         let newL, has_reducedL = reduce l
         let newR, has_reducedR = reduce r
@@ -174,13 +192,11 @@ let rec reduce term =
     | InternalOperation op -> InternalOperation op, false
     | IfThenElse (cond, tr, fs) ->
         let newCond, has_reducedCond = reduce cond
-        let newTr, has_reducedTr = reduce tr
-        let newFs, has_reducedFs = reduce fs
 
         match newCond with
-        | Bool true -> newTr, true
-        | Bool false -> newFs, true
-        | _ -> IfThenElse(newCond, newTr, newFs), has_reducedCond || has_reducedTr || has_reducedFs
+        | Bool true -> tr, true
+        | Bool false -> fs, true
+        | _ -> IfThenElse(newCond, tr, fs), has_reducedCond
     | Fix (x, t) ->
         let newT = substitute_var t x (Fix(x, t))
         printfn $"> > > %s{string_of_term newT}"

@@ -7,7 +7,7 @@ open FSharp.Text.Lexing
 open Exceptions.Errors
 open Helpers.Logger
 open Core.Operators.InternalOperator
-open Core.Operators.BinaryOperator
+open Core.Operators.BinaryOperators
 
 let logger = Logger()
 
