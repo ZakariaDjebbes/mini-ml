@@ -8,6 +8,12 @@ type BinaryOperator =
     | Mod
     | And
     | Or
+    | Equals
+    | NotEquals
+    | LessThan
+    | LessThanOrEqual
+    | GreaterThan
+    | GreaterThanOrEqual
 
 /// Gets the string of an operator to be used in the pretty printer.
 let string_of_binary_perator op =
@@ -19,4 +25,10 @@ let string_of_binary_perator op =
     | Mod -> "%"
     | And -> "&&"
     | Or -> "||"
+    | Equals -> "=="
+    | NotEquals -> "!="
+    | LessThan -> "<"
+    | LessThanOrEqual -> "<="
+    | GreaterThan -> ">"
+    | GreaterThanOrEqual -> ">="
     

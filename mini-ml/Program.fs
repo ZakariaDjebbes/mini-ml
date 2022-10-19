@@ -6,6 +6,8 @@ open Core.Type
 open FSharp.Text.Lexing
 open Exceptions.Errors
 open Helpers.Logger
+open Core.Operators.InternalOperator
+open Core.Operators.BinaryOperator
 
 let logger = Logger()
 
@@ -18,14 +20,17 @@ let parse text =
     result
 
 // try
-//         let mutable term: Term = InternalOperation(Zero)
+//         let mutable term: Term = BinaryOperation (Num 6, Num 3, GreaterThan)
 //         logger.logWarning $"Term: %s{string_of_term term}"
+//
+//         term <- alpha_convert term
+//         logger.logFatal $"Alpha converted: %s{string_of_term term}"
 //
 //         let infered = infer_type term
 //         logger.logSuccess $"Type: %s{string_of_type infered}"
 //
 //         term <- evaluate term
-//         logger.logInfo $"Reduced: %s{string_of_term term}"    
+//         logger.logInfo $"Reduced: %s{string_of_term term}"   
 //
 // with
 // | e ->

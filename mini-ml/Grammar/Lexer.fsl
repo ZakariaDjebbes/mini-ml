@@ -28,6 +28,12 @@ rule tokenstream = parse
 | ","     { Parser.COMMA }
 | "&&"   { Parser.AND }
 | "||"   { Parser.OR }
+| "=="  { Parser.EQUAL }
+| "!="  { Parser.NOTEQUAL }
+| "<"   { Parser.LESS }
+| "<="  { Parser.LESSEQUAL }
+| ">"   { Parser.GREATER }
+| ">="  { Parser.GREATEREQUAL }
 | "+"       { Parser.PLUS }
 | "-"       { Parser.MINUS }
 | "*"       { Parser.TIMES }

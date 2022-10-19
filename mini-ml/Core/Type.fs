@@ -83,6 +83,12 @@ let rec generate_eq term target env =
             let req = generate_eq rt TBool env
             
             leq @ req @ [ (target, TBool) ]
+        | Equals | NotEquals | LessThan | LessThanOrEqual | GreaterThan | GreaterThanOrEqual ->
+            let new_type = TVar(name_factory ())
+            let leq = generate_eq lt new_type env
+            let req = generate_eq rt new_type env
+            
+            leq @ req @ [ (target, TBool) ]
     | ConsList(l, r) ->
         let type_el = TVar (name_factory())
         let type_tail = TList type_el
@@ -109,12 +115,6 @@ let rec generate_eq term target env =
             let eq = (target, type_op)
 
             [eq]
-        | Cons ->
-            let name = name_factory()
-            let type_op = TArr(TVar name, TArr(TList (TVar name), TList (TVar name)))
-            let eq = (target, type_op)
-
-            [eq]
         | Not ->
             let type_op = TArr(TBool, TBool)
             let eq = (target, type_op)
@@ -126,19 +126,19 @@ let rec generate_eq term target env =
             let eq = (target, type_op)
 
             [eq]
-        | Zero ->
-            let type_op = TArr(TNum, TBool)
-            let eq = (target, type_op)
-            
-            [eq]
     | IfThenElse (cond, tr, fs) ->
-        let new_var = TVar (name_factory())
+        let new_type = TVar (name_factory())
         let cond_eq = generate_eq cond TBool env
-        let tr_eq = generate_eq tr new_var env
-        let fs_eq = generate_eq fs new_var env
-        let eq = (target, new_var)
+        let tr_eq = generate_eq tr new_type env
+        let fs_eq = generate_eq fs new_type env
+        let eq = (target, new_type)
         cond_eq @ tr_eq @ fs_eq @ [eq]
-
+    | Fix (x, t) ->
+        let type_var = TVar (name_factory())
+        let type_term = TArr(type_var, type_var)
+        let eq = (target, type_var)
+        let resolved = generate_eq t type_term ((x, type_var) :: env)
+        eq :: resolved
 /// Check if a variable is a type
 let rec is_type var t =
     match t with

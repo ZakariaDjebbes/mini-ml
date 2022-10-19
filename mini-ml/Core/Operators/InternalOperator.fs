@@ -3,18 +3,21 @@
 type InternalOperator =
     | Head
     | Tail
-    | Cons
     | Not
     | Empty
-    | Zero
     
 // Gets the string of an internal operator to be used in the pretty printer.
 let string_of_internal_operator op =
     match op with
     | Head -> "head"
     | Tail -> "tail"
-    | Cons -> "cons"
     | Not -> "not"
     | Empty -> "empty"
-    | Zero -> "zero"
-    
+
+let internal_operator_of_string op =
+    match op with
+    | "head" -> Some(Head)
+    | "tail" -> Some(Tail)
+    | "not" -> Some(Not)
+    | "empty" -> Some(Empty)
+    | _ -> None
