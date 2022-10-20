@@ -4,7 +4,6 @@ open System
 
 type Logger() =
     member val Line = true with get, set
-
     member this.log (msg: string) (color: ConsoleColor) =
         Console.ForegroundColor <- color
 

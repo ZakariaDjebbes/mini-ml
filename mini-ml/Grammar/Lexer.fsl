@@ -19,7 +19,7 @@ let num = ['0'-'9']+
 
 rule tokenstream = parse
 // --------------------------
-| "=>"       { Parser.ARROW }
+| "->"       { Parser.ARROW }
 | "("      { Parser.LPAR }
 | ")"      { Parser.RPAR }
 | "::"     { Parser.DOUBLECOLON }
@@ -28,7 +28,7 @@ rule tokenstream = parse
 | ","     { Parser.COMMA }
 | "&&"   { Parser.AND }
 | "||"   { Parser.OR }
-| "=="  { Parser.EQUAL }
+| "=="  { Parser.DOUBLEEQUAL }
 | "!="  { Parser.NOTEQUAL }
 | "<"   { Parser.LESS }
 | "<="  { Parser.LESSEQUAL }
@@ -39,11 +39,17 @@ rule tokenstream = parse
 | "*"       { Parser.TIMES }
 | "/"       { Parser.DIV }
 | "%"    { Parser.MOD }
+| "fix"    { Parser.FIX }
 | "true"  { Parser.TRUE }
 | "false" { Parser.FALSE }
 | "if"    { Parser.IF }
 | "then"  { Parser.THEN }
 | "else"  { Parser.ELSE }
+| "let"  { Parser.LET }
+| "in"  { Parser.IN }
+| "rec"  { Parser.REC }
+| "fun"  { Parser.FUN }
+| "=" { Parser.EQUAL }
 | ident    { Parser.IDENT (lexeme lexbuf) }
 | num      { Parser.NUM (int (lexeme lexbuf)) }
 // --------------------------

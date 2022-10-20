@@ -23,7 +23,7 @@ open Helpers.GrammarHelpers
 %token MOD
 %token AND
 %token OR
-%token EQUAL
+%token DOUBLEEQUAL
 %token NOTEQUAL
 %token LESS
 %token LESSEQUAL
@@ -32,8 +32,14 @@ open Helpers.GrammarHelpers
 %token TRUE
 %token FALSE
 %token IF
+%token FIX
 %token THEN
 %token ELSE
+%token LET
+%token IN
+%token REC
+%token FUN
+%token EQUAL
 %token <string> IDENT
 %token <int> NUM
 
@@ -55,11 +61,18 @@ term:
 	| abs { $1 }
 
 abs:
-	| IDENT ARROW abs { Abs($1, $3) }
+	| FUN idents ARROW abs { FunToTerm $2 $4 }
 	| cond { $1 }
 
 cond:
     | IF cond THEN cond ELSE cond { IfThenElse($2, $4, $6) }
+    | let { $1 }
+
+let:
+    | LET IDENT EQUAL term IN term { Let($2, $4, $6) }
+    | LET IDENT idents EQUAL term IN term { LetArgsToTerm $2 $3 $5 $7 }
+    | LET REC IDENT EQUAL term IN term { Let($3, Fix($3, $5), $7) }
+    | LET REC IDENT idents EQUAL term IN term { LetArgsToTermFix $3 $4 $6 $8 }    
     | disj { $1 }
 
 disj:
@@ -71,7 +84,7 @@ conj:
     | comp { $1 }
 
 comp:
-    | list EQUAL list { ComparisonOperation($1, $3, Equals) }
+    | list DOUBLEEQUAL list { ComparisonOperation($1, $3, Equals) }
     | list NOTEQUAL list { ComparisonOperation($1, $3, NotEquals) }
     | list LESS list { ComparisonOperation($1, $3, LessThan) }
     | list LESSEQUAL list { ComparisonOperation($1, $3, LessThanOrEqual) }
@@ -106,8 +119,13 @@ atom:
 	| LPAR term RPAR { $2 }
 	| LBRACK RBRACK { EmptyList }
 	| LBRACK seq RBRACK { ListTermToTerm $2 }
+    | FIX LPAR IDENT COMMA term RPAR { Fix($3, $5) }
 
 seq:
-    | term { [$1] }
-    | term COMMA { [$1] }
     | term COMMA seq { $1 :: $3 }
+    | term COMMA { [$1] }
+    | term { [$1] }
+
+idents:
+    | IDENT idents { $1 :: $2 }
+    | IDENT { [$1] }

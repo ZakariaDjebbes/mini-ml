@@ -18,6 +18,7 @@ type Term =
     | Bool of bool
     | IfThenElse of Term * Term * Term
     | Fix of string * Term
+    | Let of string * Term * Term
     
 /// Get a readable string representation of a term
 let rec string_of_term term =
@@ -39,7 +40,8 @@ let rec string_of_term term =
     | InternalOperation op -> string_of_internal_operator op
     | Bool b -> $"{b.ToString().ToLower()}"
     | IfThenElse (cond, t, f) -> $"if {string_of_term cond} then {string_of_term t} else {string_of_term f}"
-    | Fix (x, t) -> $"fix ({x}) = {string_of_term t}"
+    | Fix (x, t) -> $"fix({x}, {string_of_term t})"
+    | Let (x, t, b) -> $"let {x} = {string_of_term t} in {string_of_term b}"
 /// Pretty print a term
 let pretty_print_term term = printfn $"%s{string_of_term term}"
 
@@ -59,6 +61,7 @@ let rec map_name term f =
     | Bool b -> Bool b
     | IfThenElse (cond, tr, fs) -> IfThenElse(map_name cond f, map_name tr f, map_name fs f)
     | Fix (x, t) -> Fix(f x, map_name t f)
+    | Let (x, t, b) -> Let(f x, map_name t f, map_name b f)
 /// Rename a variable name to a new variable name
 let rec map_var term func bo =
     match term with
@@ -75,6 +78,7 @@ let rec map_var term func bo =
     | Bool b -> Bool b
     | IfThenElse (cond, tr, fs) -> IfThenElse(map_var cond func bo, map_var tr func bo, map_var fs func bo)
     | Fix (x, t) -> Fix(x, map_var t func (x :: bo))
+    | Let (x, t, b) -> Let(x, map_var t func bo, map_var b func (x :: bo))
 /// Substitute a name for a variable in a term
 let substitute_name term from changeTo =
     map_name term (fun x -> if x = from then changeTo else x)
@@ -117,7 +121,17 @@ let rec convert term =
     | InternalOperation op -> InternalOperation op
     | Bool b -> Bool b
     | IfThenElse (cond, tr, fs) -> IfThenElse(convert cond, convert tr, convert fs)
-    | Fix (x, t) -> Fix(x, convert t)
+    | Fix (x, t) ->
+        let newName = name_factory ()
+        Fix((if x.StartsWith('@') then newName else x),
+             let subbed = substitute_name t x newName
+             convert subbed)
+    | Let (a, b, c) ->
+        let new_a = name_factory()
+        let converted_b = convert b
+        let subbed_c = substitute_name c a new_a
+        let converted_c = convert subbed_c
+        Let(new_a, converted_b, converted_c)
 /// Alpha convert a term
 let alpha_convert term =
     let converted = convert (map_name term (fun x -> "@" + x))
@@ -197,19 +211,18 @@ let rec reduce term =
         | Bool true -> tr, true
         | Bool false -> fs, true
         | _ -> IfThenElse(newCond, tr, fs), has_reducedCond
-    | Fix (x, t) ->
-        let newT = substitute_var t x (Fix(x, t))
-        printfn $"> > > %s{string_of_term newT}"
-        
-        newT, true
+    | Fix (x, t) -> substitute_var t x (Fix(x, t)), true
+    | Let (a, b, c) ->
+        let newB = evaluate b
+        substitute_var c a newB, true
     | Var _ | Num _ | EmptyList | Bool _ -> term, false
 /// Fully evaluate a term, throwing an exception if it takes too long
-let evaluate term =
+and evaluate term =
     let mutable redT: Term = term
     let mutable should_reduce = true
 
     let stopWatch =
-        System.Diagnostics.Stopwatch.StartNew()
+        Diagnostics.Stopwatch.StartNew()
 
     while should_reduce do
         if stopWatch.Elapsed.Seconds = 5 then
