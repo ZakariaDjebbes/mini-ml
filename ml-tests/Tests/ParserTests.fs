@@ -1,4 +1,4 @@
-module mini_ml_tests.ParserTests
+module ml_tests.ParserTests
 open NUnit.Framework
 open Core.Type
 open mini_ml_tests.Parser

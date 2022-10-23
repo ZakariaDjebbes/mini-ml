@@ -12,6 +12,7 @@
     <Compile Include="Tests\BinaryOperationsTests.fs" />
     <Compile Include="Tests\ParserTests.fs" />
     <Compile Include="Tests\InternalOperationsTests.fs" />
+    <Compile Include="Tests\ListTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

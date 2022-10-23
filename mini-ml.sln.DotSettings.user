@@ -3,4 +3,7 @@
   &lt;TestAncestor&gt;&#xD;
     &lt;TestId&gt;NUnit3x::F4FBD699-0FD6-4EAF-9A92-2A743FEA5C67::net6.0::ml_tests.Tests.InternalOperationsTests+BinaryOperationsTests&lt;/TestId&gt;&#xD;
   &lt;/TestAncestor&gt;&#xD;
+&lt;/SessionState&gt;</s:String>
+	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=52c4f100_002D9156_002D4b24_002D93f6_002Df5363cf3938e/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="All tests from &amp;lt;ml-tests&amp;gt;" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
+  &lt;Project Location="M:\home\lanathanel\Tas\mini-ml\ml-tests" Presentation="&amp;lt;ml-tests&amp;gt;" /&gt;&#xD;
 &lt;/SessionState&gt;</s:String></wpf:ResourceDictionary>
