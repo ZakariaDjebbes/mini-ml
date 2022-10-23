@@ -20,6 +20,31 @@ type Term =
     | IfThenElse of Term * Term * Term
     | Fix of string * Term
     | Let of string * Term * Term
+    | Pointer of int
+    | Ref of Term
+    | Deref of Term
+    | Assign of Term * Term
+    
+type Memory() =
+    member val memory = Array.empty with get, set
+    
+    member this.at (index: int) =
+        this.memory[index]
+    
+    member this.push (value: Term) =
+        this.memory <- Array.append this.memory [|value|]
+        this.memory.Length - 1
+        
+    member this.set (index: int) (value: Term) =
+        this.memory[index] <- value
+        
+    member this.string_of_memory() =
+        let mutable result = ""
+        for i in 0..this.memory.Length - 1 do
+            result <- result + $"%d{i}: %s{this.memory[i].ToString()}\n"
+        result
+
+let memory = Memory()
     
 /// Get a readable string representation of a term
 let rec string_of_term term =
@@ -43,6 +68,11 @@ let rec string_of_term term =
     | IfThenElse (cond, t, f) -> $"if {string_of_term cond} then {string_of_term t} else {string_of_term f}"
     | Fix (x, t) -> $"fix({x}, {string_of_term t})"
     | Let (x, t, b) -> $"let {x} = {string_of_term t} in {string_of_term b}"
+    | Pointer n -> $"ptr({n.ToString()})"
+    | Ref t -> $"ref({string_of_term t})"
+    | Deref t -> $"!{string_of_term t}"
+    | Assign (l, r) -> $"({string_of_term l} := {string_of_term r})"
+    
 /// Pretty print a term
 let pretty_print_term term = printfn $"%s{string_of_term term}"
 
@@ -63,6 +93,11 @@ let rec map_name term f =
     | IfThenElse (cond, tr, fs) -> IfThenElse(map_name cond f, map_name tr f, map_name fs f)
     | Fix (x, t) -> Fix(f x, map_name t f)
     | Let (x, t, b) -> Let(f x, map_name t f, map_name b f)
+    | Pointer n -> Pointer n
+    | Ref t -> Ref(map_name t f)
+    | Deref t -> Deref(map_name t f)
+    | Assign (l, r) -> Assign(map_name l f, map_name r f)
+    
 /// Rename a variable name to a new variable name
 let rec map_var term func bo =
     match term with
@@ -80,6 +115,10 @@ let rec map_var term func bo =
     | IfThenElse (cond, tr, fs) -> IfThenElse(map_var cond func bo, map_var tr func bo, map_var fs func bo)
     | Fix (x, t) -> Fix(x, map_var t func (x :: bo))
     | Let (x, t, b) -> Let(x, map_var t func bo, map_var b func (x :: bo))
+    | Pointer n -> Pointer n
+    | Ref t -> Ref(map_var t func bo)
+    | Deref t -> Deref(map_var t func bo)
+    | Assign (l, r) -> Assign(map_var l func bo, map_var r func bo)
 /// Substitute a name for a variable in a term
 let substitute_name term from changeTo =
     map_name term (fun x -> if x = from then changeTo else x)
@@ -125,6 +164,10 @@ let rec convert term =
         let subbed_c = substitute_name c a new_a
         let converted_c = convert subbed_c
         Let(new_a, converted_b, converted_c)
+    | Pointer n -> Pointer n
+    | Ref t -> Ref(convert t)
+    | Deref t -> Deref(convert t)
+    | Assign (l, r) -> Assign(convert l, convert r)
 /// Alpha convert a term
 let alpha_convert term =
     let converted = convert (map_name term (fun x -> "@" + x))
@@ -136,6 +179,16 @@ let alpha_convert term =
         | Some op -> InternalOperation op
         | None -> Var x
     )) []
+    
+let rec is_non_expansive t =
+    match t with
+    | Var _ | Num _ | Bool _ | Abs _ | InternalOperation _ | EmptyList  -> true
+    | NumOperation (l, r, _) | BoolOperation (l, r, _)
+    | ComparisonOperation (l, r, _) | IfThenElse (_, l, r)
+    | Let(_, l, r) -> is_non_expansive l && is_non_expansive r    
+    | Fix (_, t) -> is_non_expansive t
+    | App _ | ConsList _ | Ref _ | Deref _ | Pointer _ | Assign _ -> false
+
 /// Do a single reduction step
 let rec reduce term =
     match term with
@@ -208,7 +261,25 @@ let rec reduce term =
     | Let (a, b, c) ->
         let newB = evaluate b
         substitute_var c a newB, true
-    | Var _ | Num _ | EmptyList | Bool _ -> term, false
+    | Ref t ->
+        let newT = evaluate t
+        let newPointer = memory.push newT
+        Pointer newPointer, false
+    | Deref t ->
+        let newT = evaluate t
+        match newT with
+        | Pointer n -> memory.at n, true
+        | _ -> Deref newT, false
+    | Assign (l, r) ->
+        let newL = evaluate l
+        let newR = evaluate r
+        
+        match newL with
+        | Pointer n ->
+            memory.set n newR
+            newR, true
+        | _ -> Assign(newL, newR), false
+    | Var _ | Num _ | EmptyList | Bool _ | Pointer _ -> term, false
 /// Fully evaluate a term, throwing an exception if it takes too long
 and evaluate term =
     let mutable redT: Term = term

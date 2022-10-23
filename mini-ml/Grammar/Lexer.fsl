@@ -4,6 +4,12 @@ open Parser
 open System
 open Core.Term
 
+let setInitialPos (lexbuf:LexBuffer<_>) filename =
+     lexbuf.EndPos <- { pos_bol = 0;
+                        pos_fname=filename;
+                        pos_cnum=0;
+                        pos_lnum=1 }
+
 let newline (lexbuf: LexBuffer<_>) = 
   lexbuf.StartPos <- lexbuf.StartPos.NextLine
 
@@ -13,7 +19,7 @@ let lexeme = LexBuffer<_>.LexemeString
 // Regular expressions
 let whitespace = [' ' '\t' ]
 let newline = ('\n' | '\r' '\n')
-let ident = ['a'-'z' 'A'-'Z']+
+let ident = ['A'-'Z' 'a'-'z' '_'] ['A'-'Z' 'a'-'z' '0'-'9' '_']*
 let num = ['0'-'9']+
 
 
@@ -50,6 +56,9 @@ rule tokenstream = parse
 | "rec"  { Parser.REC }
 | "fun"  { Parser.FUN }
 | "=" { Parser.EQUAL }
+| "!" { Parser.EXCLAMATION }
+| "ref" { Parser.REF }
+| ":=" { Parser.ASSIGN }
 | ident    { Parser.IDENT (lexeme lexbuf) }
 | num      { Parser.NUM (int (lexeme lexbuf)) }
 // --------------------------

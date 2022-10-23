@@ -40,6 +40,9 @@ open Helpers.GrammarHelpers
 %token REC
 %token FUN
 %token EQUAL
+%token EXCLAMATION
+%token ASSIGN
+%token REF
 %token <string> IDENT
 %token <int> NUM
 
@@ -120,6 +123,9 @@ atom:
 	| LBRACK RBRACK { EmptyList }
 	| LBRACK seq RBRACK { ListTermToTerm $2 }
     | FIX LPAR IDENT COMMA term RPAR { Fix($3, $5) }
+    | REF LPAR term RPAR { Ref($3) }
+    | EXCLAMATION LPAR term RPAR { Deref($3) }
+    | LPAR term ASSIGN term RPAR { Assign($2, $4) }
 
 seq:
     | term COMMA seq { $1 :: $3 }

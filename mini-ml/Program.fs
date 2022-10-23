@@ -24,10 +24,11 @@ let readFile path =
     file.Close()
     text
 
+logger.logWarning "Type your commands: "
+
 while true do
     try
             let text = readFile "mini-ml/file.fs"
-
             logger.Line <- false
             logger.logDefault"> "
             logger.Line <- true
@@ -40,13 +41,12 @@ while true do
             // logger.logFatal $"Alpha converted: %s{string_of_term term}"
             
             let infered = infer_type term
-            logger.logFatal $"Type: %s{string_of_type_debug infered}"
+            logger.logFatal $"Type: %s{string_of_type infered}"
 
             term <- evaluate term
             logger.logInfo $"Reduced: %s{string_of_term term}"    
     with
     | e ->
-        logger.logError "\nError: "
         match e with
         | :? TimeoutException as ex -> logger.logError $"%s{ex.Message}"
         | :? NotSupportedException as ex -> logger.logError $"%s{ex.Message}"
@@ -54,5 +54,8 @@ while true do
         | :? System.Data.InvalidExpressionException as ex -> logger.logError $"%s{ex.Message}"
         | :? RecursiveTypeException -> logger.logError "Recursive type found in term"
         | :? UnkownTypeException -> logger.logError "Couldn't find a target in the output of unification"
-        | _ -> logger.logError $"%A{e.Message}"
+        | _ ->
+            logger.logError $"Message : %A{e.Message}"
+            logger.logError $"Type : %A{e.GetType()}"
+            logger.logError $"Trace : %A{e.StackTrace}"
        

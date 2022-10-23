@@ -50,7 +50,7 @@ in
 let sum = foldleft add 0 in
 
 let prod = foldleft mul 1 in
-
+let id = fun x -> x in
 let compose f g x = f (g x) in
 let reverse = foldleft cons [] in
 let foldright op init = compose reverse (foldleft op init) in
@@ -59,3 +59,23 @@ let map op = foldright (compose cons op) [] in
 let incr = add 1 in
 let double = mul 2 in
 let square x = mul x x in
+
+
+let fake_id xs =
+    let previous = ref([]) in
+    let id2 x =
+        if empty (!(previous)) then
+            let xss = (previous := [x]) in
+            x
+        else
+            let p = head ( !(previous) ) in
+            let xss = (previous := [x]) in
+            p
+    in
+    id2
+in
+
+let id = fake_id 0 in
+
+let a = id 1 in
+let b = id 2 in

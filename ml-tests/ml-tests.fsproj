@@ -8,8 +8,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="TypeTests.fs"/>
-    <Compile Include="Program.fs"/>
+    <Compile Include="Helpers.fs" />
+    <Compile Include="Tests\BinaryOperationsTests.fs" />
+    <Compile Include="Tests\ParserTests.fs" />
+    <Compile Include="Tests\InternalOperationsTests.fs" />
+    <Compile Include="Program.fs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,10 +1,12 @@
 module Core.Type
 
+open System.Collections.Generic
 open System.Data
 open Core.Term
 open Exceptions.Errors
 open Core.Operators.InternalOperator
 open Core.NameFactory
+open Microsoft.FSharp.Core
 
 type Type =
     | TVar of string
@@ -12,7 +14,9 @@ type Type =
     | TList of Type    
     | TNum
     | TBool
+    | TUnit
     | TPolymorphic of string list * Type
+    | TPointer of Type
 
 type Env = (string * Type) list
 
@@ -31,33 +35,46 @@ let rec string_of_type_debug t =
         + ")"
     | TList t -> "List<" + string_of_type_debug t + ">"
     | TBool -> "bool"
+    | TUnit -> "unit"
     | TPolymorphic (vars, t) ->
         "forall "
         + String.concat " " vars
         + ". "
         + string_of_type_debug t
+    | TPointer t -> "Pointer<" + string_of_type_debug t + ">"
 
-let rec string_of_type t =
-    let name_generator = fresh_var_alphabetic_generator()
-    match t with
-    | TNum -> "num"
-    | TVar _ ->
-        let name = "'" + name_generator()
-        name
-    | TArr (t1, t2) ->
-        "("
-        + string_of_type t1
-        + " -> "
-        + string_of_type t2
-        + ")"
-    | TList t -> "List<" + string_of_type t + ">"
-    | TBool -> "bool"
-    | TPolymorphic (vars, t) ->
-        "forall "
-        + String.concat " " vars
-        + ". "
-        + string_of_type t
-
+/// Get a readable string representation of a type but with alpha-renamed types
+let string_of_type t =
+    let namesMap = Dictionary<string, string>()
+    let name_generator = fresh_var_alphabetic_generator() 
+    
+    let rec internal_string_of_type t =
+        match t with
+        | TNum -> "num"
+        | TVar x ->
+            if namesMap.ContainsKey(x) then
+                namesMap[x]
+            else
+                let name = name_generator()
+                namesMap[x] <- name
+                name
+        | TArr (t1, t2) ->
+            "("
+            + internal_string_of_type t1
+            + " -> "
+            + internal_string_of_type t2
+            + ")"
+        | TList t -> "List<" + internal_string_of_type t + ">"
+        | TBool -> "bool"
+        | TUnit -> "unit"
+        | TPolymorphic (vars, t) ->
+            "forall "
+            + String.concat " " vars
+            + ". "
+            + internal_string_of_type t
+        | TPointer t -> "Pointer<" + internal_string_of_type t + ">"
+    
+    t |> internal_string_of_type
 
 /// Pretty print a type
 let pretty_print_type t = printfn $"%s{string_of_type_debug t}"
@@ -81,7 +98,8 @@ let rec type_contains_var var t =
     | TArr (t1, t2) -> (type_contains_var var t1) || (type_contains_var var t2)
     | TList t -> type_contains_var var t
     | TPolymorphic (_, t) -> type_contains_var var t
-    | TNum | TBool-> false
+    | TPointer t -> type_contains_var var t
+    | TNum | TBool | TUnit -> false
 
 /// Check if an env contains a type
 let env_contains_var (env: Env) (var: string) =
@@ -96,7 +114,8 @@ let rec map_type t fn =
     | TArr (t1, t2) -> TArr(map_type t1 fn, map_type t2 fn)
     | TList t -> TList(map_type t fn)
     | TPolymorphic (l, t) -> TPolymorphic(l, map_type t fn)
-    | TNum | TBool -> t
+    | TPointer t -> TPointer(map_type t fn)
+    | TNum | TBool | TUnit -> t
 
 /// Substitute a type for a variable
 let substitute_type from changeTo in_t =
@@ -124,7 +143,7 @@ let substitute_eq (from: string) (changeTo: Type) (eq : Equations) : Equations =
 /// Open a type (change the forall to a variable)
 let rec open_type t =
     match t with
-    | TVar _ | TBool | TNum -> t
+    | TVar _ | TBool | TNum | TUnit -> t
     | TArr (t1, t2) -> TArr (open_type t1, open_type t2)
     | TList t -> TList (open_type t)
     | TPolymorphic (p_vars, t) ->
@@ -133,18 +152,20 @@ let rec open_type t =
             let new_name = name_factory()
             t <- substitute_type p_var (TVar new_name) t
         open_type t
+    | TPointer t -> TPointer (open_type t)
 
 let rec get_variables (t: Type) : string list =
-    let rec get_variables2 (t: Type) : string list =
+    let rec internal_get_variables (t: Type) : string list =
         match t with
         | TVar v -> [v]
-        | TArr (t1, t2) -> (get_variables2 t1) @ (get_variables2 t2)
-        | TList t -> get_variables2 t
+        | TArr (t1, t2) -> (internal_get_variables t1) @ (internal_get_variables t2)
+        | TList t -> internal_get_variables t
+        | TPointer t -> internal_get_variables t
         | TPolymorphic (vars, t) ->
-            get_variables2 t
+            internal_get_variables t
                 |> List.filter (fun v -> not (List.contains v vars))
-        | TNum | TBool -> []
-    get_variables2 t |> List.distinct
+        | TNum | TBool | TUnit -> []
+    internal_get_variables t |> List.distinct
 
 /// 
 let rec generalize (t: Type) (env: Env): Type =
@@ -252,10 +273,35 @@ let rec generate_eq (term: Term) (target: Type) (env: Env) : Equations * Env =
         (eq :: type_eq), env
     | Let (a, b, c) ->
         let type_b, old_eqs, env = infer_type_with_env b env
-        let type_b = generalize type_b env
+        let mutable type_b = type_b
+        
+        if is_non_expansive b then
+            type_b <- generalize type_b env
+        
         let type_c = TVar(name_factory())
         let eq, env = generate_eq c type_c ((a, type_b) :: env)
         ([(target, type_c)] @ old_eqs @ eq), env
+    | Pointer _ ->
+        let type_eq = (target, TPointer (TVar (name_factory())))
+        [type_eq], env
+    | Ref t ->
+        let type_t = TVar (name_factory())
+        let type_eq, env = generate_eq t type_t env
+        let eq = (target, TPointer type_t)
+        (eq :: type_eq), env
+    | Deref t ->
+        let type_t = TVar (name_factory())
+        let type_eq, env = generate_eq t (TPointer type_t) env
+        let eq = (target, type_t)
+        (eq :: type_eq), env
+    | Assign (l, r) ->
+        let type_l = TVar (name_factory())
+        let type_r = TVar (name_factory())
+        let type_eq_l, env = generate_eq l (TPointer type_l) env
+        let type_eq_r, env = generate_eq r type_r env
+        let eq = (type_l, type_r)
+        let final = (target, TUnit)
+        ([final] @ type_eq_l @ type_eq_r @ [eq]), env
 /// Does a step of unification
 and unify_one (eqs: Equations) (target: Type) (env: Env) : Equations * Env =
     let eqs = List.map (fun (a, b) -> (open_type a, open_type b)) eqs
@@ -275,6 +321,7 @@ and unify_one (eqs: Equations) (target: Type) (env: Env) : Equations * Env =
                      (i, [], [ (v, t) ])
              | TArr (l1, r1), TArr (l2, r2) -> (i, [ (l1, l2); (r1, r2) ], [])
              | TList l, TList r  -> (i, [(l, r)], [])
+             | TPointer l, TPointer r -> (i, [(l, r)], [])
              | l, r -> raise (InvalidExpressionException($"Unification failed between {string_of_type_debug l} and {string_of_type_debug r}"))))
         |> List.head
     let index, news, substs = res
