@@ -14,9 +14,9 @@
     <Compile Include="Exceptions/Errors.fs" /> 
     <Compile Include="Core\Operators\InternalOperator.fs" />
     <Compile Include="Core\Operators\BinaryOperators.fs" />
+    <Compile Include="Core\NameFactory.fs" />
     <Compile Include="Core/Term.fs" />
     <Compile Include="Core/Type.fs" />
-    <Compile Include="Core\NameFactory.fs" />
     <Compile Include="Helpers/GrammarHelpers.fs" />
     <Compile Include="Helpers\Logger.fs" />
 

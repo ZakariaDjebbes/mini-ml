@@ -3,6 +3,7 @@
 open System
 open Core.Operators.InternalOperator
 open Core.Operators.BinaryOperators
+open Core.NameFactory
 
 type Term =
     | Var of string
@@ -93,14 +94,6 @@ let substitute_var term from changeTo =
             else
                 Var x)
         []
-
-/// Get a fresh variable name
-let name_factory =
-    let counter = ref -1
-
-    fun () ->
-        counter.Value <- counter.Value + 1
-        "$" + counter.Value.ToString()
 
 /// Converts a term to a new fresh name
 let rec convert term =

@@ -10,13 +10,6 @@ let mul a b = a * b in
 
 let cons e l = e :: l in
 
-let rec map f list =
-    if empty list then
-        []
-    else
-        f (head list) :: map f (tail list)
-in
-
 let rec filter p list =
     if empty list then
         []
@@ -59,3 +52,10 @@ let sum = foldleft add 0 in
 let prod = foldleft mul 1 in
 
 let compose f g x = f (g x) in
+let reverse = foldleft cons [] in
+let foldright op init = compose reverse (foldleft op init) in
+let filter p = foldright (fun x y -> if p x then x :: y else y) [] in
+let map op = foldright (compose cons op) [] in
+let incr = add 1 in
+let double = mul 2 in
+let square x = mul x x in

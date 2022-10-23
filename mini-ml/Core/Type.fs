@@ -4,6 +4,7 @@ open System.Data
 open Core.Term
 open Exceptions.Errors
 open Core.Operators.InternalOperator
+open Core.NameFactory
 
 type Type =
     | TVar of string
@@ -18,10 +19,31 @@ type Env = (string * Type) list
 type Equations = (Type * Type) list
 
 /// Get a readable string representation of a type
-let rec string_of_type t =
+let rec string_of_type_debug t =
     match t with
     | TNum -> "num"
     | TVar x -> x
+    | TArr (t1, t2) ->
+        "("
+        + string_of_type_debug t1
+        + " -> "
+        + string_of_type_debug t2
+        + ")"
+    | TList t -> "List<" + string_of_type_debug t + ">"
+    | TBool -> "bool"
+    | TPolymorphic (vars, t) ->
+        "forall "
+        + String.concat " " vars
+        + ". "
+        + string_of_type_debug t
+
+let rec string_of_type t =
+    let name_generator = fresh_var_alphabetic_generator()
+    match t with
+    | TNum -> "num"
+    | TVar _ ->
+        let name = "'" + name_generator()
+        name
     | TArr (t1, t2) ->
         "("
         + string_of_type t1
@@ -35,13 +57,15 @@ let rec string_of_type t =
         + String.concat " " vars
         + ". "
         + string_of_type t
+
+
 /// Pretty print a type
-let pretty_print_type t = printfn $"%s{string_of_type t}"
+let pretty_print_type t = printfn $"%s{string_of_type_debug t}"
 
 /// Get a readable string representation of an equation
 let pretty_print_equation eq =
     for t1, t2 in eq do
-        printfn $"%s{string_of_type t1} = %s{string_of_type t2}\n"
+        printfn $"%s{string_of_type_debug t1} = %s{string_of_type_debug t2}\n"
 
 /// Find the type of a variable in an environement
 let rec find_type var env =
@@ -58,6 +82,12 @@ let rec type_contains_var var t =
     | TList t -> type_contains_var var t
     | TPolymorphic (_, t) -> type_contains_var var t
     | TNum | TBool-> false
+
+/// Check if an env contains a type
+let env_contains_var (env: Env) (var: string) =
+    // printfn $"Checking if env:\n %O{env}\n contains var: \n%s{var}\n"
+    env |> List.filter (fun (_, y) -> type_contains_var var y) |> List.length > 0
+    // printfn $"Result: %b{res}\n"        
 
 /// Map a type to the output of a function
 let rec map_type t fn =
@@ -76,6 +106,9 @@ let substitute_type from changeTo in_t =
         else
             TVar name)
 
+/// Substitute a type for another  in an environment
+let rec substitude_var_in_env (env: Env) (from: string) (changeTo: Type) =
+    env |> List.map (fun (x, y) -> (x, substitute_type from changeTo y))
 
 /// Substitute for an equation list
 let substitute_eq (from: string) (changeTo: Type) (eq : Equations) : Equations =
@@ -87,6 +120,7 @@ let substitute_eq (from: string) (changeTo: Type) (eq : Equations) : Equations =
             :: res
 
     res
+    
 /// Open a type (change the forall to a variable)
 let rec open_type t =
     match t with
@@ -113,13 +147,13 @@ let rec get_variables (t: Type) : string list =
     get_variables2 t |> List.distinct
 
 /// 
-let rec generalize (t: Type) (_env: Env): Type =
+let rec generalize (t: Type) (env: Env): Type =
     let mutable p_vars = []
     let mutable t = t
     let vars = get_variables t
     for var in vars do
-        let is_in_env = true
-        if is_in_env then
+        let is_in_env = env_contains_var env var
+        if not is_in_env then
             let new_name = name_factory()
             let new_t = TVar(new_name)
             t <- substitute_type var new_t t
@@ -128,57 +162,57 @@ let rec generalize (t: Type) (_env: Env): Type =
     TPolymorphic(p_vars, t)
 
 /// Resolve the type of a term
-let rec generate_eq term target env =
+let rec generate_eq (term: Term) (target: Type) (env: Env) : Equations * Env =
     match term with
     | Var x ->
         let t = find_type x env
-        [ (target, t) ]
-    | Num _ -> [ (target, TNum) ]
-    | Bool _ -> [ (target, TBool) ]
+        [ (target, t) ], env
+    | Num _ -> [ (target, TNum) ], env
+    | Bool _ -> [ (target, TBool) ], env
     | Abs (x, t) ->
         let ta = name_factory ()
         let tr = name_factory ()
         let eq = TArr(TVar ta, TVar tr)
         let left_side = (target, eq)
 
-        let resolved =
+        let resolved, _ =
             generate_eq t (TVar tr) ((x, TVar ta) :: env)
 
-        left_side :: resolved
+        (left_side :: resolved), env
     | App (lt, rt) ->
         let type_arg = TVar(name_factory ())
         let type_return = TVar(name_factory ())
-        let leq = generate_eq lt (TArr(type_arg, type_return)) env
-        let req = generate_eq rt type_arg env
+        let leq, env = generate_eq lt (TArr(type_arg, type_return)) env
+        let req, env = generate_eq rt type_arg env
         
-        leq @ req @ [ (target, type_return) ]
+        (leq @ req @ [ (target, type_return) ]), env
     | NumOperation (lt, rt, _) ->
-        let leq = generate_eq lt TNum env
-        let req = generate_eq rt TNum env
+        let leq, env = generate_eq lt TNum env
+        let req, env = generate_eq rt TNum env
         
-        leq @ req @ [ (target, TNum) ]
+        (leq @ req @ [ (target, TNum) ]), env
     | BoolOperation (lt, rt, _) ->
-        let leq = generate_eq lt TBool env
-        let req = generate_eq rt TBool env
+        let leq, env = generate_eq lt TBool env
+        let req, env = generate_eq rt TBool env
         
-        leq @ req @ [ (target, TBool) ]
+        (leq @ req @ [ (target, TBool) ]), env
     | ComparisonOperation (lt, rt, _) ->
-        let leq = generate_eq lt TNum env
-        let req = generate_eq rt TNum env
+        let leq, env = generate_eq lt TNum env
+        let req, env = generate_eq rt TNum env
         
-        leq @ req @ [ (target, TBool) ]
+        (leq @ req @ [ (target, TBool) ]), env
     | ConsList(l, r) ->
         let type_el = TVar (name_factory())
         let type_tail = TList type_el
         
-        let leq = generate_eq l type_el env
-        let req = generate_eq r type_tail env
+        let leq, env = generate_eq l type_el env
+        let req, env = generate_eq r type_tail env
         let teq = (target, type_tail)
 
-        leq @ [teq;] @ req
+        (leq @ [teq;] @ req), env
     | EmptyList ->
         let new_var = name_factory()
-        [(target, TList (TVar new_var))]
+        [(target, TList (TVar new_var))], env
     | InternalOperation op ->
         match op with
         | Head ->
@@ -186,44 +220,44 @@ let rec generate_eq term target env =
             let type_op = TArr(TList (TVar name), TVar name)
             let eq = (target, type_op)
 
-            [eq]
+            [eq], env
         | Tail ->
             let name = name_factory()
             let type_op = TArr(TList (TVar name), TList (TVar name))
             let eq = (target, type_op)
 
-            [eq]
+            [eq], env
         | Not ->
             let type_op = TArr(TBool, TBool)
             let eq = (target, type_op)
 
-            [eq]
+            [eq], env
         | Empty ->
             let name = name_factory()
             let type_op = TArr(TList (TVar name), TBool)
             let eq = (target, type_op)
 
-            [eq]
+            [eq], env
     | IfThenElse (cond, tr, fs) ->
         let new_type = TVar (name_factory())
-        let cond_eq = generate_eq cond TBool env
-        let tr_eq = generate_eq tr new_type env
-        let fs_eq = generate_eq fs new_type env
+        let cond_eq, env = generate_eq cond TBool env
+        let tr_eq, env = generate_eq tr new_type env
+        let fs_eq, env = generate_eq fs new_type env
         let eq = (target, new_type)
-        cond_eq @ tr_eq @ fs_eq @ [eq]
+        (cond_eq @ tr_eq @ fs_eq @ [eq]), env
     | Fix (x, t) ->
         let type_var = TVar (name_factory())
-        let type_eq = generate_eq t type_var ((x, type_var) :: env)
+        let type_eq, _ = generate_eq t type_var ((x, type_var) :: env)
         let eq = (target, type_var)
-        eq :: type_eq
+        (eq :: type_eq), env
     | Let (a, b, c) ->
-        let type_b, old_eqs = infer_type_with_env b env
+        let type_b, old_eqs, env = infer_type_with_env b env
         let type_b = generalize type_b env
         let type_c = TVar(name_factory())
-        let eq = generate_eq c type_c ((a, type_b) :: env)
-        [(target, type_c)] @ old_eqs @ eq
+        let eq, env = generate_eq c type_c ((a, type_b) :: env)
+        ([(target, type_c)] @ old_eqs @ eq), env
 /// Does a step of unification
-and unify_one (eqs: Equations) (target: Type) : Equations =
+and unify_one (eqs: Equations) (target: Type) (env: Env) : Equations * Env =
     let eqs = List.map (fun (a, b) -> (open_type a, open_type b)) eqs
     let res =
         eqs
@@ -241,35 +275,38 @@ and unify_one (eqs: Equations) (target: Type) : Equations =
                      (i, [], [ (v, t) ])
              | TArr (l1, r1), TArr (l2, r2) -> (i, [ (l1, l2); (r1, r2) ], [])
              | TList l, TList r  -> (i, [(l, r)], [])
-             
-             | l, r -> raise (InvalidExpressionException($"Unification failed between {string_of_type l} and {string_of_type r}"))))
+             | l, r -> raise (InvalidExpressionException($"Unification failed between {string_of_type_debug l} and {string_of_type_debug r}"))))
         |> List.head
     let index, news, substs = res
     let eqs = List.removeAt index eqs
-    let eqs = eqs @ news
-    let eqs = List.fold (fun eq (from, changeTo) -> substitute_eq from changeTo eq) eqs substs
-    eqs
+    let mutable eqs = eqs @ news
+    let mutable env = env
+    for from, changeTo in substs do
+        eqs <- substitute_eq from changeTo eqs
+        env <- substitude_var_in_env env from changeTo
+    eqs, env
 /// Unifies all equations until there is only 1 remaining (which would be the end result)
-and unify (target: Type) (eqs: Equations)  : Equations =
-    let mutable res: Equations = eqs
+and unify (target: Type) (env: Env) (eqs: Equations) : Equations * Env =
+    let mutable res, env = eqs, env
     while res.Length > 1 do
-        res <- unify_one res target
-    res
-
-and infer_type_with_env (term : Term) (env : Env) : Type * Equations =
+        let a, b = unify_one res target env
+        res <- a
+        env <- b
+    res, env
+/// 
+and infer_type_with_env (term : Term) (env : Env) : Type * Equations * Env =
     let target = TVar (name_factory())
-    let old_eqs = generate_eq term target env
-    let t1, t2 = old_eqs
-              |> unify target
-              |> List.head 
+    let old_eqs, env = generate_eq term target env
+    let unif_eqs, env = unify target env old_eqs
+    let t1, t2 = List.head unif_eqs
     
     if t1 = target then
-        (t2, old_eqs)
+        (t2, old_eqs, env)
     else if t2 = target then
-        (t1, old_eqs)
+        (t1, old_eqs, env)
     else
         raise(UnkownTypeException)
 /// Infers the type of a given term
 let infer_type (term : Term) : Type =
-    let a, _ = infer_type_with_env term []
+    let a, _, _ = infer_type_with_env term []
     a
