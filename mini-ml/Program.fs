@@ -28,7 +28,7 @@ logger.logWarning "Type your commands: "
 
 while true do
     try
-            let text = readFile "mini-ml/file.fs"
+            let text = readFile "file.zfs"
             logger.Line <- false
             logger.logDefault"> "
             logger.Line <- true
@@ -55,7 +55,5 @@ while true do
         | :? RecursiveTypeException -> logger.logError "Recursive type found in term"
         | :? UnkownTypeException -> logger.logError "Couldn't find a target in the output of unification"
         | _ ->
-            logger.logError $"Message : %A{e.Message}"
-            logger.logError $"Type : %A{e.GetType()}"
-            logger.logError $"Trace : %A{e.StackTrace}"
+            logger.logError $"Error : %A{e.Message}"
        

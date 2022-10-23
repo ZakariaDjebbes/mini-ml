@@ -3,6 +3,8 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
     <RootNamespace>mini_ml</RootNamespace>
+    <DebugType>None</DebugType>
+    <DebugSymbols>False</DebugSymbols>
     <FsLexToolExe>fslex.dll</FsLexToolExe>
     <FsYaccToolExe>fsyacc.dll</FsYaccToolExe>
   </PropertyGroup>
@@ -39,5 +41,8 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Properties\launchSettings.json" />
+    <Content Include="file.zfs">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 </Project>
