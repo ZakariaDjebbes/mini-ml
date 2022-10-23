@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "mini-ml", "mini-ml\mini-ml.fsproj", "{8AFA13D9-AD62-47B7-9150-090F2AF98D71}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ml-core", "ml-core\ml-core.fsproj", "{8AFA13D9-AD62-47B7-9150-090F2AF98D71}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ml-tests", "ml-tests\ml-tests.fsproj", "{F4FBD699-0FD6-4EAF-9A92-2A743FEA5C67}"
 EndProject
