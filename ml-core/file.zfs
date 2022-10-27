@@ -79,3 +79,11 @@ let id = fake_id 0 in
 
 let a = id 1 in
 let b = id 2 in
+
+let myref x = ref(x) in
+
+let test x =
+    let y = myref x in
+    y
+in
+
