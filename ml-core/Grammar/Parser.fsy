@@ -43,6 +43,8 @@ open Helpers.GrammarHelpers
 %token EXCLAMATION
 %token ASSIGN
 %token REF
+%token UNIT
+%token <string> CHAR
 %token <string> IDENT
 %token <int> NUM
 
@@ -119,6 +121,8 @@ atom:
     | TRUE { Bool(true) }
     | FALSE { Bool(false) }
 	| IDENT { Var($1) }
+	| CHAR { Char($1.[1]) }
+	| UNIT { Unit }
 	| LPAR term RPAR { $2 }
 	| LBRACK RBRACK { EmptyList }
 	| LBRACK seq RBRACK { ListTermToTerm $2 }

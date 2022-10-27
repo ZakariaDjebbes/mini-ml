@@ -17,6 +17,7 @@ type Term =
     | EmptyList
     | InternalOperation of InternalOperator
     | Bool of bool
+    | Char of char
     | IfThenElse of Term * Term * Term
     | Fix of string * Term
     | Let of string * Term * Term
@@ -24,6 +25,11 @@ type Term =
     | Ref of Term
     | Deref of Term
     | Assign of Term * Term
+    | Unit
+    | Exception of MLException * Term
+and MLException =
+    | BaseException
+    | DivideByZero
     
 type Memory() =
     member val memory = Array.empty with get, set
@@ -45,7 +51,7 @@ type Memory() =
         result
 
 let memory = Memory()
-    
+  
 /// Get a readable string representation of a term
 let rec string_of_term term =
     match term with
@@ -57,7 +63,7 @@ let rec string_of_term term =
         + " "
         + string_of_term r
         + ")"
-    | Abs (x, t) -> "(λ" + x + "." + string_of_term t + ")"
+    | Abs _ -> "<function>" //"(λ" + x + "." + string_of_term t + ")"
     | NumOperation (l, r, op) -> $"({string_of_term l} {string_of_num_operator op} {string_of_term r})"
     | BoolOperation (l, r, op) -> $"({string_of_term l} {string_of_bool_operator op} {string_of_term r})"
     | ComparisonOperation (l, r, op) -> $"({string_of_term l} {string_of_comparison_operator op} {string_of_term r})"
@@ -65,6 +71,7 @@ let rec string_of_term term =
     | EmptyList -> "[]"
     | InternalOperation op -> string_of_internal_operator op
     | Bool b -> $"{b.ToString().ToLower()}"
+    | Char c -> $"'{c.ToString()}'"
     | IfThenElse (cond, t, f) -> $"if {string_of_term cond} then {string_of_term t} else {string_of_term f}"
     | Fix (x, t) -> $"fix({x}, {string_of_term t})"
     | Let (x, t, b) -> $"let {x} = {string_of_term t} in {string_of_term b}"
@@ -72,7 +79,12 @@ let rec string_of_term term =
     | Ref t -> $"ref({string_of_term t})"
     | Deref t -> $"!{string_of_term t}"
     | Assign (l, r) -> $"({string_of_term l} := {string_of_term r})"
-    
+    | Unit -> "unit"
+    | Exception (e, t) -> $"{string_of_exception e}({string_of_term t})"
+ and string_of_exception e =
+    match e with
+    | BaseException -> "BaseException"
+    | DivideByZero -> "DivdeByZero"
 /// Pretty print a term
 let pretty_print_term term = printfn $"%s{string_of_term term}"
 
@@ -97,7 +109,9 @@ let rec map_name term f =
     | Ref t -> Ref(map_name t f)
     | Deref t -> Deref(map_name t f)
     | Assign (l, r) -> Assign(map_name l f, map_name r f)
-    
+    | Unit -> Unit
+    | Exception (e, t) -> Exception(e, map_name t f)
+    | Char c -> Char c
 /// Rename a variable name to a new variable name
 let rec map_var term func bo =
     match term with
@@ -119,6 +133,9 @@ let rec map_var term func bo =
     | Ref t -> Ref(map_var t func bo)
     | Deref t -> Deref(map_var t func bo)
     | Assign (l, r) -> Assign(map_var l func bo, map_var r func bo)
+    | Unit -> Unit
+    | Exception (e, t) -> Exception(e, map_var t func bo)
+    | Char c -> Char c
 /// Substitute a name for a variable in a term
 let substitute_name term from changeTo =
     map_name term (fun x -> if x = from then changeTo else x)
@@ -168,6 +185,9 @@ let rec convert term =
     | Ref t -> Ref(convert t)
     | Deref t -> Deref(convert t)
     | Assign (l, r) -> Assign(convert l, convert r)
+    | Unit -> Unit
+    | Exception (e, t) -> Exception(e, convert t)
+    | Char c -> Char c
 /// Alpha convert a term
 let alpha_convert term =
     let converted = convert (map_name term (fun x -> "@" + x))
@@ -182,13 +202,14 @@ let alpha_convert term =
     
 let rec is_non_expansive t =
     match t with
-    | Var _ | Num _ | Bool _ | Abs _ | InternalOperation _ | EmptyList  -> true
+    | Var _ | Num _ | Bool _ | Abs _ | InternalOperation _ | EmptyList | Char _  -> true
     | NumOperation (l, r, _) | BoolOperation (l, r, _)
     | ComparisonOperation (l, r, _) | IfThenElse (_, l, r)
     | Let(_, l, r) -> is_non_expansive l && is_non_expansive r    
     | Fix (_, t) -> is_non_expansive t
     | App _ | ConsList _ | Ref _ | Deref _ | Pointer _ | Assign _ -> false
-
+    | Unit -> true
+    | Exception _ -> true
 /// Do a single reduction step
 let rec reduce term =
     match term with
@@ -204,6 +225,8 @@ let rec reduce term =
             | Tail, ConsList(_, list) -> list, true
             | Tail, EmptyList -> raise(NotSupportedException("Trying to get tail of non-list"))
             | Not, Bool b -> Bool(not b), true
+            | CharToNum, Char c -> Num(int c), true
+            | NumToChar, Num n -> Char(Convert.ToChar(n)), true
             | Empty, EmptyList -> Bool true, true
             | Empty, ConsList _ -> Bool false, true
             | _, _ -> App(rm, rn), has_reduced_m || has_reduced_n
@@ -218,8 +241,16 @@ let rec reduce term =
             | Plus -> Num(n1 + n2), true
             | Minus -> Num(n1 - n2), true
             | Times -> Num(n1 * n2), true
-            | Divide -> Num(n1 / n2), true
-            | Mod -> Num(n1 % n2), true
+            | Divide ->
+                if n2 = 0 then
+                    Exception(DivideByZero, NumOperation (l, r, op)), false
+                else 
+                    Num(n1 / n2), true
+            | Mod ->
+                if n2 = 0 then
+                    Exception(DivideByZero, NumOperation (l, r, op)), false
+                else 
+                    Num(n1 % n2), true                
         | _ -> NumOperation(newL, newR, op), has_reduced_l || has_reduced_r
     | BoolOperation (l, r, op) ->
         let newL, has_reduced_l = reduce l
@@ -279,7 +310,8 @@ let rec reduce term =
             memory.set n newR
             newR, true
         | _ -> Assign(newL, newR), false
-    | Var _ | Num _ | EmptyList | Bool _ | Pointer _ -> term, false
+    | Exception _ -> term, false
+    | Var _ | Num _ | EmptyList | Bool _ | Pointer _ | Unit | Char _-> term, false
 /// Fully evaluate a term, throwing an exception if it takes too long
 and evaluate term =
     let mutable redT: Term = term

@@ -13,10 +13,12 @@ type Type =
     | TArr of Type * Type
     | TList of Type    
     | TNum
+    | TChar
     | TBool
     | TUnit
     | TPolymorphic of string list * Type
     | TPointer of Type
+    | TException
 
 type Env = (string * Type) list
 
@@ -42,7 +44,8 @@ let rec string_of_type_debug t =
         + ". "
         + string_of_type_debug t
     | TPointer t -> "Pointer<" + string_of_type_debug t + ">"
-
+    | TException -> "exception"
+    | TChar -> "char"
 /// Get a readable string representation of a type but with alpha-renamed types
 let string_of_type t =
     let namesMap = Dictionary<string, string>()
@@ -73,7 +76,8 @@ let string_of_type t =
             + ". "
             + internal_string_of_type t
         | TPointer t -> "Pointer<" + internal_string_of_type t + ">"
-    
+        | TException -> "exception"
+        | TChar -> "char"
     t |> internal_string_of_type
 
 /// Pretty print a type
@@ -99,7 +103,7 @@ let rec type_contains_var var t =
     | TList t -> type_contains_var var t
     | TPolymorphic (_, t) -> type_contains_var var t
     | TPointer t -> type_contains_var var t
-    | TNum | TBool | TUnit -> false
+    | TNum | TBool | TUnit | TException | TChar -> false
 
 /// Check if an env contains a type
 let env_contains_var (env: Env) (var: string) =
@@ -115,8 +119,8 @@ let rec map_type t fn =
     | TList t -> TList(map_type t fn)
     | TPolymorphic (l, t) -> TPolymorphic(l, map_type t fn)
     | TPointer t -> TPointer(map_type t fn)
-    | TNum | TBool | TUnit -> t
-
+    | TException -> TException
+    | TNum | TBool | TUnit | TChar -> t
 /// Substitute a type for a variable
 let substitute_type from changeTo in_t =
     map_type in_t (fun name ->
@@ -143,7 +147,7 @@ let substitute_eq (from: string) (changeTo: Type) (eq : Equations) : Equations =
 /// Open a type (change the forall to a variable)
 let rec open_type t =
     match t with
-    | TVar _ | TBool | TNum | TUnit -> t
+    | TVar _ | TBool | TNum | TUnit | TChar -> t
     | TArr (t1, t2) -> TArr (open_type t1, open_type t2)
     | TList t -> TList (open_type t)
     | TPolymorphic (p_vars, t) ->
@@ -153,7 +157,8 @@ let rec open_type t =
             t <- substitute_type p_var (TVar new_name) t
         open_type t
     | TPointer t -> TPointer (open_type t)
-
+    | TException -> TException
+    
 let rec get_variables (t: Type) : string list =
     let rec internal_get_variables (t: Type) : string list =
         match t with
@@ -164,7 +169,7 @@ let rec get_variables (t: Type) : string list =
         | TPolymorphic (vars, t) ->
             internal_get_variables t
                 |> List.filter (fun v -> not (List.contains v vars))
-        | TNum | TBool | TUnit -> []
+        | TNum | TBool | TUnit | TException | TChar -> []
     internal_get_variables t |> List.distinct
 
 /// 
@@ -190,6 +195,8 @@ let rec generate_eq (term: Term) (target: Type) (env: Env) : Equations * Env =
         [ (target, t) ], env
     | Num _ -> [ (target, TNum) ], env
     | Bool _ -> [ (target, TBool) ], env
+    | Unit -> [ (target, TUnit) ], env
+    | Char _ -> [ (target, TChar) ], env
     | Abs (x, t) ->
         let ta = name_factory ()
         let tr = name_factory ()
@@ -259,6 +266,16 @@ let rec generate_eq (term: Term) (target: Type) (env: Env) : Equations * Env =
             let eq = (target, type_op)
 
             [eq], env
+        | NumToChar ->
+            let type_op = TArr(TNum, TChar)
+            let eq = (target, type_op)
+
+            [eq], env
+        | CharToNum ->
+            let type_op = TArr(TChar, TNum)
+            let eq = (target, type_op)
+
+            [eq], env
     | IfThenElse (cond, tr, fs) ->
         let new_type = TVar (name_factory())
         let cond_eq, env = generate_eq cond TBool env
@@ -302,6 +319,11 @@ let rec generate_eq (term: Term) (target: Type) (env: Env) : Equations * Env =
         let eq = (type_l, type_r)
         let final = (target, TUnit)
         ([final] @ type_eq_l @ type_eq_r @ [eq]), env
+    | Exception (_, t) ->
+        let type_t = TVar (name_factory())
+        let type_eq, env = generate_eq t type_t env
+        let eq = (target, TException)
+        (eq :: type_eq), env
 /// Does a step of unification
 and unify_one (eqs: Equations) (target: Type) (env: Env) : Equations * Env =
     let eqs = List.map (fun (a, b) -> (open_type a, open_type b)) eqs

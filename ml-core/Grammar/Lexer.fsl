@@ -20,8 +20,8 @@ let lexeme = LexBuffer<_>.LexemeString
 let whitespace = [' ' '\t' ]
 let newline = ('\n' | '\r' '\n')
 let ident = ['A'-'Z' 'a'-'z' '_'] ['A'-'Z' 'a'-'z' '0'-'9' '_']*
+let char = '\'' ['A'-'Z' 'a'-'z' '_'] '\''
 let num = ['0'-'9']+
-
 
 rule tokenstream = parse
 // --------------------------
@@ -59,11 +59,22 @@ rule tokenstream = parse
 | "!" { Parser.EXCLAMATION }
 | "ref" { Parser.REF }
 | ":=" { Parser.ASSIGN }
+| "()" { Parser.UNIT }
 | ident    { Parser.IDENT (lexeme lexbuf) }
 | num      { Parser.NUM (int (lexeme lexbuf)) }
+| char     { Parser.CHAR (lexeme lexbuf) }
 // --------------------------
 | whitespace	{ tokenstream lexbuf }
 | newline	{ newline lexbuf; tokenstream lexbuf }
 // --------------------------
 | _    		{ failwith ("ParseError" + LexBuffer<_>.LexemeString lexbuf) }
 | eof   	{ Parser.EOF }
+| "(*"		{ comment lexbuf }
+| "//"      { comment_line lexbuf }
+and comment = parse
+| "*)" { tokenstream lexbuf }
+| _ { comment lexbuf }
+and comment_line = parse
+| newline { tokenstream lexbuf }
+| eof { Parser.EOF }
+| _ { comment_line lexbuf }
