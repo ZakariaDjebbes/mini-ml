@@ -1,11 +1,9 @@
-module ml_tests.ParserTests
+module ml_tests.Tests.ParserTests
 open NUnit.Framework
-open Core.Type
-open mini_ml_tests.Parser
 
 [<TestFixture>]
 type ParserTests () =
     
     [<TestCase("1")>]
     member this.TestTNum(test: string) =
-        Assert.AreEqual(3, 3)
+        Assert.AreEqual(test, 3)

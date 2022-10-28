@@ -60,6 +60,9 @@ rule tokenstream = parse
 | "ref" { Parser.REF }
 | ":=" { Parser.ASSIGN }
 | "()" { Parser.UNIT }
+| "try" { Parser.TRY }
+| "with" { Parser.WITH }
+| "raise" { Parser.RAISE }
 | ident    { Parser.IDENT (lexeme lexbuf) }
 | num      { Parser.NUM (int (lexeme lexbuf)) }
 | char     { Parser.CHAR (lexeme lexbuf) }

@@ -32,3 +32,11 @@ let FunToTerm (args: string list) (b: Term) : Term =
         res <- Abs(arg, res)
         
     res
+    
+let MLException_of_string s =
+    match s with
+    | "DivideByZero" | "DivByZero" -> DivideByZero
+    | "HeadOfEmptyList" -> HeadOfEmptyList
+    | "TailOfEmptyList" -> TailOfEmptyList
+    | _ -> UnkownExceptionException
+    

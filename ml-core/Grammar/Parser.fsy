@@ -44,6 +44,9 @@ open Helpers.GrammarHelpers
 %token ASSIGN
 %token REF
 %token UNIT
+%token TRY
+%token WITH
+%token RAISE
 %token <string> CHAR
 %token <string> IDENT
 %token <int> NUM
@@ -63,7 +66,11 @@ start:
 	| term EOF { $1 }    
 
 term: 
-	| abs { $1 }
+	| try { $1 }
+	
+try:
+    | TRY term WITH term { TryWith($2, $4) }
+    | abs { $1 }
 
 abs:
 	| FUN idents ARROW abs { FunToTerm $2 $4 }
@@ -127,10 +134,11 @@ atom:
 	| LBRACK RBRACK { EmptyList }
 	| LBRACK seq RBRACK { ListTermToTerm $2 }
     | FIX LPAR IDENT COMMA term RPAR { Fix($3, $5) }
-    | REF LPAR term RPAR { Ref($3) }
-    | EXCLAMATION LPAR term RPAR { Deref($3) }
+    | REF term { Ref($2) }
+    | EXCLAMATION term { Deref($2) }
     | LPAR term ASSIGN term RPAR { Assign($2, $4) }
-
+    | LPAR term COMMA term RPAR { Pair($2, $4) }
+    | RAISE LPAR IDENT RPAR { Raise(MLException_of_string $3) }
 seq:
     | term COMMA seq { $1 :: $3 }
     | term COMMA { [$1] }

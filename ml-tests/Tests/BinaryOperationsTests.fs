@@ -1,11 +1,10 @@
-﻿module ml_tests.NumOperationTests
+﻿module ml_tests.Tests.NumOperationTests
 
 open NUnit.Framework
 open mini_ml_tests.Parser
 
 [<TestFixture>]
 type BinaryOperationsTests () =
-    
     [<TestCase("1 + 3", "4")>]
     [<TestCase("3 - 2", "1")>]
     [<TestCase("2 * 3", "6")>]

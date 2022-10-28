@@ -27,9 +27,15 @@ type Term =
     | Assign of Term * Term
     | Unit
     | Exception of MLException * Term
+    | TryWith of Term * Term
+    | Pair of Term * Term
+    | Raise of MLException
 and MLException =
     | BaseException
     | DivideByZero
+    | HeadOfEmptyList
+    | TailOfEmptyList
+    | UnkownExceptionException
     
 type Memory() =
     member val memory = Array.empty with get, set
@@ -80,11 +86,17 @@ let rec string_of_term term =
     | Deref t -> $"!{string_of_term t}"
     | Assign (l, r) -> $"({string_of_term l} := {string_of_term r})"
     | Unit -> "unit"
-    | Exception (e, t) -> $"{string_of_exception e}({string_of_term t})"
+    | Exception (e, t) -> $"<exception>: {string_of_exception e} caused by {string_of_term t}"
+    | TryWith (t, c) -> $"try {string_of_term t} catch {string_of_term c}"
+    | Pair (l, r) -> $"({string_of_term l}, {string_of_term r})"
+    | Raise e -> $"raise {string_of_exception e}"
  and string_of_exception e =
     match e with
     | BaseException -> "BaseException"
     | DivideByZero -> "DivdeByZero"
+    | HeadOfEmptyList -> "HeadOfEmptyList"
+    | TailOfEmptyList -> "TailOfEmptyList"
+    | UnkownExceptionException -> "UnkownExceptionException"
 /// Pretty print a term
 let pretty_print_term term = printfn $"%s{string_of_term term}"
 
@@ -112,6 +124,9 @@ let rec map_name term f =
     | Unit -> Unit
     | Exception (e, t) -> Exception(e, map_name t f)
     | Char c -> Char c
+    | TryWith (t, c) -> TryWith(map_name t f, map_name c f)
+    | Pair (l, r) -> Pair(map_name l f, map_name r f)
+    | Raise e -> Raise e
 /// Rename a variable name to a new variable name
 let rec map_var term func bo =
     match term with
@@ -136,6 +151,9 @@ let rec map_var term func bo =
     | Unit -> Unit
     | Exception (e, t) -> Exception(e, map_var t func bo)
     | Char c -> Char c
+    | TryWith (t, c) -> TryWith(map_var t func bo, map_var c func bo)
+    | Pair (l, r) -> Pair(map_var l func bo, map_var r func bo)
+    | Raise e -> Raise e
 /// Substitute a name for a variable in a term
 let substitute_name term from changeTo =
     map_name term (fun x -> if x = from then changeTo else x)
@@ -188,6 +206,9 @@ let rec convert term =
     | Unit -> Unit
     | Exception (e, t) -> Exception(e, convert t)
     | Char c -> Char c
+    | TryWith (t, c) -> TryWith(convert t, convert c)
+    | Pair (l, r) -> Pair(convert l, convert r)
+    | Raise e -> Raise e
 /// Alpha convert a term
 let alpha_convert term =
     let converted = convert (map_name term (fun x -> "@" + x))
@@ -202,10 +223,10 @@ let alpha_convert term =
     
 let rec is_non_expansive t =
     match t with
-    | Var _ | Num _ | Bool _ | Abs _ | InternalOperation _ | EmptyList | Char _  -> true
+    | Var _ | Num _ | Bool _ | Abs _ | InternalOperation _ | EmptyList | Char _ | Raise _  -> true
     | NumOperation (l, r, _) | BoolOperation (l, r, _)
-    | ComparisonOperation (l, r, _) | IfThenElse (_, l, r)
-    | Let(_, l, r) -> is_non_expansive l && is_non_expansive r    
+    | ComparisonOperation (l, r, _) | IfThenElse (_, l, r) | TryWith(l, r)
+    | Let(_, l, r) | Pair(l, r) -> is_non_expansive l && is_non_expansive r    
     | Fix (_, t) -> is_non_expansive t
     | App _ | ConsList _ | Ref _ | Deref _ | Pointer _ | Assign _ -> false
     | Unit -> true
@@ -221,14 +242,16 @@ let rec reduce term =
         | InternalOperation op ->
             match op, r with
             | Head, ConsList (elem, _) -> elem, true
-            | Head, EmptyList -> raise(NotSupportedException("Trying to get the head of an empty list"))
+            | Head, EmptyList -> Exception(HeadOfEmptyList, term), true
             | Tail, ConsList(_, list) -> list, true
-            | Tail, EmptyList -> raise(NotSupportedException("Trying to get tail of non-list"))
+            | Tail, EmptyList -> Exception(TailOfEmptyList, term), true
             | Not, Bool b -> Bool(not b), true
             | CharToNum, Char c -> Num(int c), true
             | NumToChar, Num n -> Char(Convert.ToChar(n)), true
             | Empty, EmptyList -> Bool true, true
             | Empty, ConsList _ -> Bool false, true
+            | Fst, Pair(l, _) -> l, true
+            | Snd, Pair(_, r) -> r, true
             | _, _ -> App(rm, rn), has_reduced_m || has_reduced_n
         | _ -> App(rm, rn), has_reduced_m || has_reduced_n
     | Abs (x, t) -> Abs(x, t), false
@@ -311,6 +334,17 @@ let rec reduce term =
             newR, true
         | _ -> Assign(newL, newR), false
     | Exception _ -> term, false
+    | TryWith (t, handler) ->
+        let newT = evaluate t
+        match newT with
+        | Exception _ ->
+            evaluate handler, true
+        | _ -> newT, false
+    | Pair (l, r) ->
+        let newL, has_reducedL = reduce l
+        let newR, has_reducedR = reduce r
+        Pair(newL, newR), (has_reducedL || has_reducedR)
+    | Raise e -> Exception (e, term), false
     | Var _ | Num _ | EmptyList | Bool _ | Pointer _ | Unit | Char _-> term, false
 /// Fully evaluate a term, throwing an exception if it takes too long
 and evaluate term =

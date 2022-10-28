@@ -32,20 +32,6 @@ let reduce_equals term expected =
         let actual = reduce (parse term)
         Assert.AreEqual(expected, actual)
         
-        
-let rec type_of_string (str: string) =
-        let words = str.Split [|' '|]
-        let name = words[0]
-        match name with
-        | "num" -> TNum
-        | "bool" -> TBool
-        | "unit" -> TUnit
-        | "var" -> TVar(words[1])
-        | "arr" -> TArr(type_of_string words[1], type_of_string words[2])
-        | "list" -> TList(type_of_string words[1])
-        | "ptr" -> TPointer(type_of_string words[1])
-        | x -> TVar x
-        
 let type_equals term expected =
         let actual = infer (parse term)
-        Assert.AreEqual(type_of_string expected, actual)
+        Assert.AreEqual(expected, string_of_type actual)

@@ -35,14 +35,14 @@ while true do
             
             let input = Console.ReadLine()
             let mutable term = parse (text + "\n" + input)
-            // logger.logWarning $"Term: %s{string_of_term term}"
-
+            //logger.logWarning $"Term: %s{string_of_term term}"
+            
             term <- alpha_convert term
             // logger.logFatal $"Alpha converted: %s{string_of_term term}"
             
             let infered = infer_type term
             logger.logFatal $"Type: %s{string_of_type infered}"
-            
+
             term <- evaluate term
             logger.logInfo $"Reduced: %s{string_of_term term}"    
     with
