@@ -21,6 +21,7 @@
     <Compile Include="Core/Type.fs" />
     <Compile Include="Helpers/GrammarHelpers.fs" />
     <Compile Include="Helpers\Logger.fs" />
+    <Compile Include="Helpers\CommandLineParser.fs" />
 
     <FsYacc Include="Grammar/Parser.fsy">
       <OtherFlags>--module Parser</OtherFlags>
@@ -37,6 +38,7 @@
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="CommandLineParser.FSharp" Version="2.9.2-ci-210" />
     <PackageReference Include="FsLexYacc" Version="10.2.0" />
   </ItemGroup>
   <ItemGroup>
@@ -44,5 +46,9 @@
     <Content Include="file.zfs">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="program.zfs">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
+    <Content Include="README.md" />
   </ItemGroup>
 </Project>

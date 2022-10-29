@@ -69,7 +69,7 @@ let rec string_of_term term =
         + " "
         + string_of_term r
         + ")"
-    | Abs _ -> "<function>" //"(λ" + x + "." + string_of_term t + ")"
+    | Abs _ -> "<function>"
     | NumOperation (l, r, op) -> $"({string_of_term l} {string_of_num_operator op} {string_of_term r})"
     | BoolOperation (l, r, op) -> $"({string_of_term l} {string_of_bool_operator op} {string_of_term r})"
     | ComparisonOperation (l, r, op) -> $"({string_of_term l} {string_of_comparison_operator op} {string_of_term r})"
@@ -85,7 +85,38 @@ let rec string_of_term term =
     | Ref t -> $"ref({string_of_term t})"
     | Deref t -> $"!{string_of_term t}"
     | Assign (l, r) -> $"({string_of_term l} := {string_of_term r})"
-    | Unit -> "unit"
+    | Unit -> "<unit>"
+    | Exception (e, t) -> $"<exception>: {string_of_exception e} caused by {string_of_term t}"
+    | TryWith (t, c) -> $"try {string_of_term t} catch {string_of_term c}"
+    | Pair (l, r) -> $"({string_of_term l}, {string_of_term r})"
+    | Raise e -> $"raise {string_of_exception e}"
+and string_of_term_debug term =
+    match term with
+    | Var x -> x
+    | Num n -> $"{n.ToString()}"
+    | App (l, r) ->
+        "("
+        + string_of_term l
+        + " "
+        + string_of_term r
+        + ")"
+    | Abs (x, t) -> "(λ" + x + "." + string_of_term t + ")"
+    | NumOperation (l, r, op) -> $"({string_of_term l} {string_of_num_operator op} {string_of_term r})"
+    | BoolOperation (l, r, op) -> $"({string_of_term l} {string_of_bool_operator op} {string_of_term r})"
+    | ComparisonOperation (l, r, op) -> $"({string_of_term l} {string_of_comparison_operator op} {string_of_term r})"
+    | ConsList (l, r) -> $"({string_of_term l} :: {string_of_term r})"
+    | EmptyList -> "[]"
+    | InternalOperation op -> string_of_internal_operator op
+    | Bool b -> $"{b.ToString().ToLower()}"
+    | Char c -> $"'{c.ToString()}'"
+    | IfThenElse (cond, t, f) -> $"if {string_of_term cond} then {string_of_term t} else {string_of_term f}"
+    | Fix (x, t) -> $"fix({x}, {string_of_term t})"
+    | Let (x, t, b) -> $"let {x} = {string_of_term t} in {string_of_term b}"
+    | Pointer n -> $"ptr({n.ToString()})"
+    | Ref t -> $"ref({string_of_term t})"
+    | Deref t -> $"!{string_of_term t}"
+    | Assign (l, r) -> $"({string_of_term l} := {string_of_term r})"
+    | Unit -> "()"
     | Exception (e, t) -> $"<exception>: {string_of_exception e} caused by {string_of_term t}"
     | TryWith (t, c) -> $"try {string_of_term t} catch {string_of_term c}"
     | Pair (l, r) -> $"({string_of_term l}, {string_of_term r})"
