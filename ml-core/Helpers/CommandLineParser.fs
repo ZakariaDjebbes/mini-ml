@@ -1,7 +1,8 @@
 ﻿module Helpers.CommandLineParser
 
 open CommandLine
-
+/// A command line parser for F#, allows me to add flags to customize how the program runs !
+/// Reference: https://github.com/commandlineparser/commandline
 type options = {
     [<Option('f', "file", HelpText = "File path to the file to evaluate and infer. If no file is specified a mini-REPL will run instead.", Required = false)>] filePath : string;
     [<Option('l', "include-lib",HelpText = "If enabeled, a library file containing some predefined functions (map, range ...) will be loaded.", Default = false, Required = false)>] lib : bool

@@ -2,6 +2,8 @@
 
 open System
 
+/// A simple logger that writes to the console with colors to make it easier to read (and cooler !).
+
 type Logger() =
     member val Line = true with get, set
     member this.log (msg: string) (color: ConsoleColor) =

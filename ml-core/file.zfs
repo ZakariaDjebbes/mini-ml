@@ -1,3 +1,5 @@
+// This is a demo file for the language (implementing a set of common functions)
+
 let rec fact n =
     if n == 0 then
         1

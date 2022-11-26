@@ -3,7 +3,8 @@
 open Core.Term
 open Core.Operators
 
-/// Creates a new term from a string (used in the parser)
+/// A set of helper functions to make it easier to work with grammars.
+
 let ListTermToTerm (l:Term list) : Term =
     let mutable res = EmptyList
     let l = List.rev l

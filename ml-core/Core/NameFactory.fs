@@ -1,6 +1,6 @@
 ﻿module Core.NameFactory
 
-/// Get a fresh variable name
+/// Get a fresh variable name (by appending $ to a number that is incremented each time this function is called).
 let name_factory =
     let counter = ref -1
 
@@ -8,6 +8,8 @@ let name_factory =
         counter.Value <- counter.Value + 1
         "$" + counter.Value.ToString()
 
+/// Get a fresh variable name in an alphabetic order
+/// useful to show types like a -> b -> c and not  $1 -> $2 -> $3 (which is harder to read and cooler)
 let fresh_var_alphabetic_generator () =   
     let fresh_var_alphabetic =
         let mutable counter = -1

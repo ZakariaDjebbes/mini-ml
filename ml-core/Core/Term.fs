@@ -5,51 +5,59 @@ open Core.Operators.InternalOperator
 open Core.Operators.BinaryOperators
 open Core.NameFactory
 
+/// Represents a term (ie an expression) in the language.
 type Term =
-    | Var of string
-    | Num of int
-    | App of Term * Term
-    | Abs of string * Term
-    | NumOperation of Term * Term * NumOperator
-    | BoolOperation of Term * Term * BoolOperator
-    | ComparisonOperation of Term * Term * ComparisonOperator
-    | ConsList of Term * Term
-    | EmptyList
-    | InternalOperation of InternalOperator
-    | Bool of bool
-    | Char of char
-    | IfThenElse of Term * Term * Term
-    | Fix of string * Term
-    | Let of string * Term * Term
-    | Pointer of int
-    | Ref of Term
-    | Deref of Term
-    | Assign of Term * Term
-    | Unit
-    | Exception of MLException * Term
-    | TryWith of Term * Term
-    | Pair of Term * Term
-    | Raise of MLException
+    | Var of string // A variable
+    | Num of int // A number
+    | App of Term * Term // Application of a term to another term
+    | Abs of string * Term // Abstraction of a term
+    | NumOperation of Term * Term * NumOperator // Operations on numbers (addition, multiplication, etc.)
+    | BoolOperation of Term * Term * BoolOperator // Operations on booleans (and, or, etc.)
+    | ComparisonOperation of Term * Term * ComparisonOperator // Operations of comparison (equal, less than, etc.)
+    | ConsList of Term * Term // Cons of a term to a list (term::list)
+    | EmptyList // Empty list
+    | InternalOperation of InternalOperator // Special Operations in the language (head, tail, fst, snd, ect.)
+    | Bool of bool // A boolean
+    | Char of char // A character
+    | IfThenElse of Term * Term * Term // If term then term else term
+    | Fix of string * Term // Fixpoint of a term
+    | Let of string * Term * Term // Let term = term in term
+    | Pointer of int // A pointer to a memory location 
+    | Ref of Term // A reference to a term (ref term)
+    | Deref of Term // Dereference of a term (deref term)
+    | Assign of Term * Term // Assignment of a term to a term (term := term)
+    | Unit // Unit 
+    | Exception of MLException * Term // Exception AND the term that caused the exception. 
+    | TryWith of Term * Term // Try term with term
+    | Pair of Term * Term // Pair of terms (term, term)
+    | Raise of MLException // Raise an exception (raise exception)
+/// Represents an exception in the language that is thron either because there is an error in the code (like a divide by zero) or by the user using the raise keyword.
 and MLException =
-    | BaseException
-    | DivideByZero
-    | HeadOfEmptyList
-    | TailOfEmptyList
-    | UnkownExceptionException
+    | BaseException // The base exception that is thrown when there is an error in the code.
+    | DivideByZero // The exception that is thrown when there is a divide by zero.
+    | HeadOfEmptyList // The exception that is thrown when the head of an empty list is taken.
+    | TailOfEmptyList // The exception that is thrown when the tail of an empty list is taken.
+    | UnkownExceptionException // The exception that is thrown when an exception is raised that is not defined in the language.
     
+/// Represents the memory buffer of the language for referencing and deferenecing.
 type Memory() =
+    /// The memory buffer.
     member val memory = Array.empty with get, set
     
+    /// Get the Term at the given index.
     member this.at (index: int) =
         this.memory[index]
     
+    /// Pushes a new Term to the memory buffer.
     member this.push (value: Term) =
         this.memory <- Array.append this.memory [|value|]
         this.memory.Length - 1
         
+    /// Sets the value at the given index to the given Term.
     member this.set (index: int) (value: Term) =
         this.memory[index] <- value
         
+    /// Pretty prints the memory buffer (FOR DEBUG ONLY).
     member this.string_of_memory() =
         let mutable result = ""
         for i in 0..this.memory.Length - 1 do
@@ -90,6 +98,7 @@ let rec string_of_term term =
     | TryWith (t, c) -> $"try {string_of_term t} catch {string_of_term c}"
     | Pair (l, r) -> $"({string_of_term l}, {string_of_term r})"
     | Raise e -> $"raise {string_of_exception e}"
+/// Get a readable string representation of an exception for debug purposes, with more details.
 and string_of_term_debug term =
     match term with
     | Var x -> x
@@ -128,6 +137,7 @@ and string_of_term_debug term =
     | HeadOfEmptyList -> "HeadOfEmptyList"
     | TailOfEmptyList -> "TailOfEmptyList"
     | UnkownExceptionException -> "UnkownExceptionException"
+    
 /// Pretty print a term
 let pretty_print_term term = printfn $"%s{string_of_term term}"
 
@@ -158,7 +168,8 @@ let rec map_name term f =
     | TryWith (t, c) -> TryWith(map_name t f, map_name c f)
     | Pair (l, r) -> Pair(map_name l f, map_name r f)
     | Raise e -> Raise e
-/// Rename a variable name to a new variable name
+    
+/// Rename a variable name to a new variable name using a renaming function
 let rec map_var term func bo =
     match term with
     | Var x -> func x bo
@@ -185,11 +196,12 @@ let rec map_var term func bo =
     | TryWith (t, c) -> TryWith(map_var t func bo, map_var c func bo)
     | Pair (l, r) -> Pair(map_var l func bo, map_var r func bo)
     | Raise e -> Raise e
-/// Substitute a name for a variable in a term
+    
+/// Substitute a name of a variable in a term
 let substitute_name term from changeTo =
     map_name term (fun x -> if x = from then changeTo else x)
 
-/// Substitute a term for a variable in a term
+/// Substitute a variable by a term in a term
 let substitute_var term from changeTo =
     map_var
         term
@@ -200,7 +212,9 @@ let substitute_var term from changeTo =
                 Var x)
         []
 
-/// Converts a term to a new fresh name
+/// Converts a term to a new term with fresh names
+/// At the end, ALL variables in the term will be unique and variables starting with @<name of var> are free
+/// All variables in the form $<number> are bound
 let rec convert term =
     match term with
     | Abs (x, t) ->
@@ -240,11 +254,18 @@ let rec convert term =
     | TryWith (t, c) -> TryWith(convert t, convert c)
     | Pair (l, r) -> Pair(convert l, convert r)
     | Raise e -> Raise e
+    
 /// Alpha convert a term
 let alpha_convert term =
     let converted = convert (map_name term (fun x -> "@" + x))
     map_var converted (fun x _ -> (
         let name = x[1..] // remove first char (the @)
+        // Since internal operations are defined internally and not in the grammar,
+        // they do not count as variables IF they are not defnied as a variable (in an ABS for example)
+        // This is why we check if the name is an internal operation by removing the @ (that means it is not a bound variable)
+        // and then checking if it is an internal operation, if it is we return the Term of the internal operation
+        // otherwise we return the variable as a free variable
+        // Because nothing forbids the user to create such a term: fun head -> head, and here head is not the function head but just a var
         let internalOperator = internal_operator_of_string name
         
         match internalOperator with
@@ -252,6 +273,7 @@ let alpha_convert term =
         | None -> Var x
     )) []
     
+/// Returns the expansion of a term (Took it from the course)
 let rec is_non_expansive t =
     match t with
     | Var _ | Num _ | Bool _ | Abs _ | InternalOperation _ | EmptyList | Char _ | Raise _  -> true
@@ -262,6 +284,7 @@ let rec is_non_expansive t =
     | App _ | ConsList _ | Ref _ | Deref _ | Pointer _ | Assign _ -> false
     | Unit -> true
     | Exception _ -> true
+    
 /// Do a single reduction step
 let rec reduce term =
     match term with
@@ -377,7 +400,9 @@ let rec reduce term =
         Pair(newL, newR), (has_reducedL || has_reducedR)
     | Raise e -> Exception (e, term), false
     | Var _ | Num _ | EmptyList | Bool _ | Pointer _ | Unit | Char _-> term, false
-/// Fully evaluate a term, throwing an exception if it takes too long
+/// Fully evaluate a term, throwing an exception if it takes too long (to prevent infinite loops)
+/// This also means that if the term is CORRECT but takes too long to evaluate, it will throw an exception
+/// This is a limitation of the current implementation but after asking you (the teacher) you said it was fine
 and evaluate term =
     let mutable redT: Term = term
     let mutable should_reduce = true

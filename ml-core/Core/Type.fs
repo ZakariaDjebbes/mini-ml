@@ -8,23 +8,26 @@ open Core.Operators.InternalOperator
 open Core.NameFactory
 open Microsoft.FSharp.Core
 
+/// Represents the type of a term in the language.
 type Type =
-    | TVar of string
-    | TArr of Type * Type
-    | TList of Type    
-    | TNum
-    | TChar
-    | TBool
-    | TUnit
-    | TPair of Type * Type
-    | TPolymorphic of string list * Type
-    | TPointer of Type
+    | TVar of string // <var>
+    | TArr of Type * Type // <fun>
+    | TList of Type // List<T>
+    | TNum // int
+    | TChar // char
+    | TBool // bool
+    | TUnit // unit
+    | TPair of Type * Type // Pair<T1, T2>
+    | TPolymorphic of string list * Type // Forall<T1, T2, ..., Tn>.T
+    | TPointer of Type // Pointer<T>
 
+/// The environment of types used to infer the type of a term. Contains a target type that is our final type for the term.
 type Env = (string * Type) list
 
+/// The list of equations that are generated during the type inference process.
 type Equations = (Type * Type) list
 
-/// Get a readable string representation of a type
+/// Get a readable string representation of a type, with more details than the default one for debugging purposes.
 let rec string_of_type_debug t =
     match t with
     | TNum -> "num"
@@ -46,7 +49,7 @@ let rec string_of_type_debug t =
         + string_of_type_debug t
     | TPointer t -> "Pointer<" + string_of_type_debug t + ">"
     | TChar -> "char"
-/// Get a readable string representation of a type but with alpha-renamed types
+/// Get a readable string representation of a type but with alpha-renamed types (looks nice but not very useful for deubgging).
 let string_of_type t =
     let namesMap = Dictionary<string, string>()
     let name_generator = fresh_var_alphabetic_generator() 
@@ -83,12 +86,12 @@ let string_of_type t =
 /// Pretty print a type
 let pretty_print_type t = printfn $"%s{string_of_type_debug t}"
 
-/// Get a readable string representation of an equation
+/// Get a readable string representation of an equation (for debugging purposes).
 let pretty_print_equation eq =
     for t1, t2 in eq do
         printfn $"%s{string_of_type_debug t1} = %s{string_of_type_debug t2}\n"
 
-/// Find the type of a variable in an environement
+/// Find the type of a variable in an environement or raise an error if it is not found.
 let rec find_type var env =
     match env with
     | [] -> raise (System.MissingFieldException($"Type of Variable {var} not found in env: {env}"))
@@ -106,7 +109,7 @@ let rec type_contains_var var t =
     | TPair (t1, t2) -> (type_contains_var var t1) || (type_contains_var var t2)
     | TNum | TBool | TUnit | TChar -> false
 
-/// Check if an env contains a type
+/// Check if an env contains a given type
 let env_contains_var (env: Env) (var: string) =
     // printfn $"Checking if env:\n %O{env}\n contains var: \n%s{var}\n"
     env |> List.filter (fun (_, y) -> type_contains_var var y) |> List.length > 0
@@ -134,7 +137,7 @@ let substitute_type from changeTo in_t =
 let rec substitude_var_in_env (env: Env) (from: string) (changeTo: Type) =
     env |> List.map (fun (x, y) -> (x, substitute_type from changeTo y))
 
-/// Substitute for an equation list
+/// Substitutes an equation list
 let substitute_eq (from: string) (changeTo: Type) (eq : Equations) : Equations =
     let mutable res: (Type * Type) list = []
 
@@ -159,7 +162,8 @@ let rec open_type t =
         open_type t
     | TPointer t -> TPointer (open_type t)
     | TPair (t1, t2) -> TPair (open_type t1, open_type t2)
-    
+
+/// Gets the distinct variables (TVar) of a type    
 let rec get_variables (t: Type) : string list =
     let rec internal_get_variables (t: Type) : string list =
         match t with
@@ -174,7 +178,10 @@ let rec get_variables (t: Type) : string list =
         | TNum | TBool | TUnit | TChar -> []
     internal_get_variables t |> List.distinct
 
-/// 
+/// Generalize a type
+/// Wich is replacing all free type variables with a polymorphic type.
+/// Example :
+///    a -> b -> a becomes forall a b. a -> b -> a
 let rec generalize (t: Type) (env: Env): Type =
     let mutable p_vars = []
     let mutable t = t
@@ -189,7 +196,10 @@ let rec generalize (t: Type) (env: Env): Type =
             
     TPolymorphic(p_vars, t)
 
-/// Resolve the type of a term
+/// Generates the equations for a given term, with a given environment and on a given target type.
+/// The environment is passed to the function to be able to update the environment with the new variables each time.
+/// For example, if we have the term: Num 3, we know that the target is num and we have nothing to add to the environment.
+/// But if we have the term: fun x -> x, we know that the target is a -> a, but we also need to add the variable x to the environment.
 let rec generate_eq (term: Term) (target: Type) (env: Env) : Equations * Env =
     match term with
     | Var x ->
@@ -358,7 +368,7 @@ let rec generate_eq (term: Term) (target: Type) (env: Env) : Equations * Env =
         let type_e = TVar (name_factory())
         
         [(target, type_e)], env
-/// Does a step of unification
+/// Does a step of unification and returns the new set of equations and an environment
 and unify_one (eqs: Equations) (target: Type) (env: Env) : Equations * Env =
     let eqs = List.map (fun (a, b) -> (open_type a, open_type b)) eqs
     let res =
@@ -390,6 +400,7 @@ and unify_one (eqs: Equations) (target: Type) (env: Env) : Equations * Env =
         env <- substitude_var_in_env env from changeTo
     eqs, env
 /// Unifies all equations until there is only 1 remaining (which would be the end result)
+/// There is no timeout since theoretically it should always terminate, which means that there are no loops either it finds a type or it throws an exception
 and unify (target: Type) (env: Env) (eqs: Equations) : Equations * Env =
     let mutable res, env = eqs, env
     while res.Length > 1 do
@@ -397,7 +408,6 @@ and unify (target: Type) (env: Env) (eqs: Equations) : Equations * Env =
         res <- a
         env <- b
     res, env
-/// 
 and infer_type_with_env (term : Term) (env : Env) : Type * Equations * Env =
     let target = TVar (name_factory())
     let old_eqs, env = generate_eq term target env

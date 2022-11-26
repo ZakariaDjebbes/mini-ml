@@ -1,3 +1,5 @@
-﻿let x = 3 in
+﻿// This is a demo file (you can use it to run the projet by using the --file flag or create your own file !)
+
+let x = 3 in
 let y = 4 in
 x + y
