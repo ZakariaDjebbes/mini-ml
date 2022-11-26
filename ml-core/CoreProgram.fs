@@ -9,8 +9,10 @@ open Helpers.Logger
 open System.IO
 open Helpers.CommandLineParser
 
+/// The logger
 let logger = Logger()
 
+/// The parser of the grammar
 let parse text =
     let lexbuf = LexBuffer<char>.FromString text
 
@@ -19,12 +21,14 @@ let parse text =
 
     result
 
+/// Reads a file and returns the content as a string
 let readFile path =
     let file = File.OpenText path
     let text = file.ReadToEnd()
     file.Close()
     text
 
+/// Infers and evaluates the given term and returns the result
 let infer_and_eval text lib =
     let mutable text = text
     if lib then
@@ -38,23 +42,26 @@ let infer_and_eval text lib =
     
     (term, alpha_term, infered_type, evaluated_term)
 
+/// Runs the language inferer and evaluator on a file
 let run_file opts =
     let file = readFile opts.filePath
     
     let term, alpha_term, infered_type, evaluated_term = infer_and_eval file opts.lib
-            
-    if infered_type <> TUnit then
-        logger.logError $"Your program was expected to return a unit type but returned %s{string_of_type infered_type} instead."
-    else
-        if opts.debug then
-            logger.logSuccess $"Term: %s{string_of_term_debug term}"
-            logger.logWarning $"Alpha converted: %s{string_of_term_debug alpha_term}"
-            logger.logFatal $"Type: %s{string_of_type_debug infered_type}"
-            logger.logInfo $"Reduced: %s{string_of_term_debug evaluated_term}"
-        else
-            logger.logSuccess $"Type: %s{string_of_type_debug infered_type}"
-            logger.logFatal $"Reduced: %s{string_of_term_debug evaluated_term}"
+
+    // In theory a program should return unit but since i have to print or read input i cannot return unit for now !
+    // if infered_type <> TUnit then
+    //     logger.logError $"Your program was expected to return a unit type but returned %s{string_of_type infered_type} instead."
     
+    if opts.debug then
+        logger.logSuccess $"Term: %s{string_of_term_debug term}"
+        logger.logWarning $"Alpha converted: %s{string_of_term_debug alpha_term}"
+        logger.logFatal $"Type: %s{string_of_type_debug infered_type}"
+        logger.logInfo $"Reduced: %s{string_of_term_debug evaluated_term}"
+    else
+        logger.logSuccess $"Type: %s{string_of_type_debug infered_type}"
+        logger.logFatal $"Reduced: %s{string_of_term_debug evaluated_term}"
+    
+/// Runs the REPL
 let repl opts =
     logger.logWarning "Welcome to ZFS Repl : "
 
@@ -87,6 +94,7 @@ let repl opts =
             | :? UnkownTypeException -> logger.logError "Couldn't find a target in the output of unification"
             | _ -> logger.logError $"Error : %A{e.Message}"
 
+/// The main entry point for the program.
 [<EntryPoint>]
 let main args =
     let opts = parseArgs args

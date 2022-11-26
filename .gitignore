@@ -8,3 +8,4 @@ Lexer.fs
 Parser.fsi
 .fake
 mini-ml.sln.DotSettings.user
+out
