@@ -35,7 +35,7 @@
     <Compile Include="Grammar/Parser.fs" />
     <Compile Include="Grammar/Lexer.fs" />
 
-    <Compile Include="Program.fs" />
+    <Compile Include="CoreProgram.fs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="CommandLineParser.FSharp" Version="2.9.2-ci-210" />

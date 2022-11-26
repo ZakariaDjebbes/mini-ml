@@ -1,0 +1,88 @@
+let rec fact n =
+    if n == 0 then
+        1
+    else
+        n * fact (n - 1)
+in
+let add a b = a + b in
+let mul a b = a * b in
+let cons e l = e :: l in
+let rec filter p list =
+    if empty list then
+        []
+    else if p (head list) then
+        head list :: filter p (tail list)
+    else
+        filter p (tail list)
+in
+let rec length list =
+    if empty list then
+        0
+    else
+        1 + length (tail list)
+in
+let rec concat a b =
+    if empty a then
+        b
+    else
+        head a :: concat (tail a) b
+in
+let rec range n =
+    if n < 1 then
+        []
+    else
+        concat (range (n - 1)) [n - 1]
+in
+let rec rrange n = 
+    if n < 1 then
+        []
+    else
+        n - 1 :: rrange (n - 1)
+in
+let rec foldleft op init list =
+    if empty list then
+        init
+    else
+        foldleft op (op (head list) init) (tail list)
+in
+let rec take n list =
+    if n == 0 then
+        []
+    else
+        head list :: take (n - 1) (tail list)
+in
+let rec map op list =
+    if empty list then
+        []
+    else
+        op (head list) :: map op (tail list)
+in
+let sum = foldleft add 0 in
+let prod = foldleft mul 1 in
+let id = fun x -> x in
+let compose f g x = f (g x) in
+let reverse = foldleft cons [] in
+let foldright op init = compose reverse (foldleft op init) in
+let filter p = foldright (fun x y -> if p x then x :: y else y) [] in
+let map op = foldright (compose cons op) [] in
+let incr = add 1 in
+let double = mul 2 in
+let square x = mul x x in
+let to_upper x = 
+    if char_to_num x >= char_to_num 'a' && char_to_num x <= char_to_num 'z' then
+        num_to_char (char_to_num x - 32)
+    else
+        x
+in
+let to_lower x = 
+    if char_to_num x >= char_to_num 'A' && char_to_num x <= char_to_num 'Z' then
+        num_to_char (char_to_num x + 32)
+    else
+        x
+in
+let rec repeat n x =
+    if n == 0 then
+        []
+    else
+        x :: repeat (n - 1) x
+in

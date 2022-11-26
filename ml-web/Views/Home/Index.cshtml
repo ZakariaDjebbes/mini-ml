@@ -1,0 +1,57 @@
+﻿@model HomeViewModel
+
+@{
+    ViewData["Title"] = "Home Page";
+}
+
+<div class="row text-center">
+    <h1 class="display-4">ZFS ML Web Player</h1>
+    <p>This is a web player for the zfs typer/evaluator available <a href="https://github.com/ZakariaDjebbes/mini-ml">here</a>.</p>
+</div>
+
+<div class="row">
+    <div class="col-8 border-1 border-1 border-dark">
+        @using (Html.BeginForm("Index", "Home", FormMethod.Post))
+        {
+            <h3 class="text-center">Enter code : </h3>
+            <div class="mt-2 mb-2">
+                @Html.CheckBoxFor(m => m.UseLib, new { @class = "form-check-input", id = "useLib" })
+                <label for="useLib" class="form-check-label">Use the custom library</label>
+            </div>
+            @Html.TextAreaFor(m => m.Term, new { @class = "form-control", id = "term", value = Model.Term ?? "let x = 1 in x + 1", rows = "10" })
+            <div class="text-center">
+                <button id="run" type="submit" class="btn btn-outline-primary mt-5">Run</button>
+            </div>
+        }
+    </div>
+    <div class="col-4 border-1 border-dark">
+        <h3 class="text-center">Result : </h3>
+        @if (Model.Error)
+        {
+            <div class="container" role="alert">
+                <code>@Model.ErrorText</code>
+            </div>
+        }
+        else
+        {
+            <div class="container">
+                <div class="term mt-3">
+                    <h5>Type</h5>
+                    <code>@Model.Type</code>
+                </div>
+                <div class="term mt-3">
+                    <h5>Reduced</h5>
+                    <code>@Model.Reduced</code>
+                </div>
+                <div class="term mt-3">
+                    <h5>Initial term</h5>
+                    <code>@Model.Term</code>
+                </div>
+                <div class="alpha mt-3">
+                    <h5>Alpha Converted Term</h5>
+                    <code>@Model.AlphaConverted</code>
+                </div>
+            </div>
+        }
+    </div>
+</div>

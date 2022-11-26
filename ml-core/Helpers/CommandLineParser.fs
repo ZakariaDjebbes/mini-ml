@@ -4,7 +4,7 @@ open CommandLine
 
 type options = {
     [<Option('f', "file", HelpText = "File path to the file to evaluate and infer. If no file is specified a mini-REPL will run instead.", Required = false)>] filePath : string;
-    [<Option('l', "include-lib",HelpText = "If enabeled, a library file containing some predefined functions (map, range ...) will be loaded.", Default = true, Required = false)>] lib : bool
+    [<Option('l', "include-lib",HelpText = "If enabeled, a library file containing some predefined functions (map, range ...) will be loaded.", Default = false, Required = false)>] lib : bool
     [<Option('d', "debug", HelpText = "Displays alpha-conversion and detailed evaluations.", Default = false, Required = false)>] debug : bool
 }
     

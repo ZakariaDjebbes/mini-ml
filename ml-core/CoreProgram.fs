@@ -1,4 +1,4 @@
-﻿module Program
+﻿module CoreProgram
 
 open System
 open Core.Term
@@ -25,7 +25,12 @@ let readFile path =
     file.Close()
     text
 
-let infer_and_eval text =
+let infer_and_eval text lib =
+    let mutable text = text
+    if lib then
+        let my_lib = readFile "file.zfs"
+        text <- my_lib + text
+    
     let term = parse text
     let alpha_term = alpha_convert term
     let infered_type = infer_type alpha_term
@@ -34,14 +39,9 @@ let infer_and_eval text =
     (term, alpha_term, infered_type, evaluated_term)
 
 let run_file opts =
-    let my_lib = readFile "file.zfs"
     let file = readFile opts.filePath
     
-    let term, alpha_term, infered_type, evaluated_term =
-        if opts.lib then
-            infer_and_eval $"{my_lib}\n{file}"
-        else
-            infer_and_eval file
+    let term, alpha_term, infered_type, evaluated_term = infer_and_eval file opts.lib
             
     if infered_type <> TUnit then
         logger.logError $"Your program was expected to return a unit type but returned %s{string_of_type infered_type} instead."
@@ -60,18 +60,13 @@ let repl opts =
 
     while true do
         try
-            let my_lib = readFile "file.zfs"
             logger.Line <- false
             logger.logDefault "> "
             logger.Line <- true
 
             let input = Console.ReadLine()
 
-            let term, alpha_term, infered_type, evaluated_term =
-                if opts.lib then
-                    infer_and_eval $"{my_lib}\n{input}"
-                else
-                    infer_and_eval input
+            let term, alpha_term, infered_type, evaluated_term = infer_and_eval input opts.lib
                     
             if opts.debug then
                 logger.logSuccess $"Term: %s{string_of_term_debug term}"
